@@ -304,6 +304,14 @@ function App() {
     () => carregarHorariosRascunho()
   );
   const [modoSimulador, setModoSimulador] = useState(false);
+  const [modoPublico] = useState<boolean>(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      return params.get("publico") === "1";
+    } catch {
+      return false;
+    }
+  });
 
   const [logEntries, setLogEntries] = useState<LogEntry[]>(() =>
     carregarLogLocal()
@@ -451,7 +459,7 @@ function App() {
   // }
 
   function limparHorarioGrupoAtual() {
-    if (!podeEditar(usuarioAtual)) {
+    if (!usuarioAtual || !podeEditar(usuarioAtual) || modoPublico) {
       alert(
         "Apenas usuários com perfil de Direção ou Vice-direção podem limpar o horário."
       );
@@ -700,7 +708,7 @@ function App() {
   // ---------- Ações da aba Cadastro por Turma ----------
 
   function handleSalvarCadastro() {
-    if (!usuarioAtual || !podeEditar(usuarioAtual)) {
+    if (!usuarioAtual || !podeEditar(usuarioAtual) || modoPublico) {
       alert(
         "Apenas usuários com perfil de Direção ou Vice-direção podem salvar ou alterar aulas."
       );
@@ -747,7 +755,7 @@ function App() {
   }
 
   function handleLimparCadastroCampo() {
-    if (!usuarioAtual || !podeEditar(usuarioAtual)) {
+    if (!usuarioAtual || !podeEditar(usuarioAtual) || modoPublico) {
       alert(
         "Apenas usuários com perfil de Direção ou Vice-direção podem limpar este horário."
       );
@@ -803,7 +811,7 @@ function App() {
   // ---------- Snapshots (versões do horário) ----------
 
   function handleSalvarSnapshot() {
-    if (!usuarioAtual || !podeEditar(usuarioAtual)) {
+    if (!usuarioAtual || !podeEditar(usuarioAtual) || modoPublico) {
       alert(
         "Apenas Direção ou Vice-direção podem salvar versões do horário."
       );
@@ -831,7 +839,7 @@ function App() {
   }
 
   function handleRestaurarSnapshot() {
-    if (!usuarioAtual || !podeEditar(usuarioAtual)) {
+    if (!usuarioAtual || !podeEditar(usuarioAtual) || modoPublico) {
       alert(
         "Apenas Direção ou Vice-direção podem restaurar versões do horário."
       );
@@ -923,6 +931,15 @@ function App() {
   const [filtroGrupoId, setFiltroGrupoId] = useState<string>("");
   const [filtroDataInicio, setFiltroDataInicio] = useState<string>("");
   const [filtroDataFim, setFiltroDataFim] = useState<string>("");
+
+  // Busca rápida no quadro
+  const [termoBusca, setTermoBusca] = useState<string>("");
+
+  function correspondeBusca(texto?: string | null) {
+    if (!termoBusca.trim()) return false;
+    if (!texto) return false;
+    return texto.toLowerCase().includes(termoBusca.trim().toLowerCase());
+  }
 
   // ---------- Exportações por professor / turma ----------
 
@@ -1265,7 +1282,7 @@ function App() {
   }
 
   function handleAplicarRascunho() {
-    if (!usuarioAtual || !podeEditar(usuarioAtual)) {
+    if (!usuarioAtual || !podeEditar(usuarioAtual) || modoPublico) {
       alert(
         "Apenas Direção ou Vice-direção podem aplicar o rascunho ao horário oficial."
       );
@@ -1387,7 +1404,11 @@ function App() {
 
         {/* Login no topo */}
         <div className="login-bar">
-          {usuarioAtual ? (
+          {modoPublico ? (
+            <span className="login-user">
+              Modo público – apenas leitura (sem login).
+            </span>
+          ) : usuarioAtual ? (
             <>
               <span className="login-user">
                 Usuário: <strong>{usuarioAtual.nome}</strong> (
@@ -1413,8 +1434,8 @@ function App() {
                 <option value="direcao">Direção</option>
                 <option value="vice_direcao">Vice-direção</option>
                 <option value="coordenacao">Coordenação</option>
-                 <option value="goe">GOE</option>
-                 <option value="aoe">AOE</option>
+                <option value="goe">GOE</option>
+                <option value="aoe">AOE</option>
                 <option value="professor">Professor(a)</option>
               </select>
               {(perfilLogin === "direcao" || perfilLogin === "vice_direcao") && (
@@ -1502,6 +1523,14 @@ function App() {
                   </option>
                 ))}
               </select>
+
+              <input
+                className="login-input"
+                placeholder="Buscar professor / turma / disciplina"
+                value={termoBusca}
+                onChange={(e) => setTermoBusca(e.target.value)}
+                style={{ marginLeft: "0.75rem", minWidth: "220px" }}
+              />
 
               <label
                 style={{
@@ -1597,9 +1626,20 @@ function App() {
                           }
 
                           const aula = horarioAtual[dia][slot.id];
+                          const destacado =
+                            aula &&
+                            (correspondeBusca(aula.turma) ||
+                              correspondeBusca(aula.disciplina) ||
+                              correspondeBusca(aula.professor));
 
                           return (
-                            <td key={dia} className="horario-slot-aula">
+                            <td
+                              key={dia}
+                              className={
+                                "horario-slot-aula" +
+                                (destacado ? " horario-highlight" : "")
+                              }
+                            >
                               {aula ? (
                                 <>
                                   {aula.turma && (
