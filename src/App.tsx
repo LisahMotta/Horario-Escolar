@@ -10,6 +10,21 @@ import {
 import type { HorarioCompleto, HorariosPorGrupo } from "./types";
 import logo from "./assets/logo.svg";
 import { ConfiguracaoEscola } from "./ConfiguracaoEscola";
+import { AuthScreen } from "./AuthScreen";
+import { HistoricoAlteracoes } from "./HistoricoAlteracoes";
+import { Dashboard } from "./Dashboard";
+import {
+  verificarSessao,
+  fazerLogout as apiFazerLogout,
+  buscarHorarios as apiBuscarHorarios,
+  salvarHorario as apiSalvarHorario,
+  limparHorario as apiLimparHorario,
+  limparGrupo as apiLimparGrupo,
+  criarSnapshot as apiCriarSnapshot,
+  buscarSnapshots as apiBuscarSnapshots,
+  buscarSnapshot as apiBuscarSnapshot,
+  deletarSnapshot as apiDeletarSnapshot,
+} from "./api";
 
 const STORAGE_KEY = "horario-escolar-manha-por-grupo";
 const STORAGE_DRAFT_KEY = "horario-escolar-rascunho-por-grupo";
@@ -22,7 +37,7 @@ const SNAPSHOT_KEY = "horario-escolar-snapshots";
 const PIN_DIRECAO = "1234";
 const PIN_VICE_DIRECAO = "5678";
 
-type AbaId = "quadro" | "cadastro" | "grades" | "relatorios" | "configuracao";
+type AbaId = "dashboard" | "quadro" | "cadastro" | "grades" | "relatorios" | "configuracao" | "historico";
 
 type Perfil =
   | "direcao"
@@ -95,12 +110,23 @@ function criarHorarioVazioParaGrupo(grupoId: GrupoId): HorarioCompleto {
   return horario;
 }
 
-function carregarHorarios(): HorariosPorGrupo {
-  const salvo = localStorage.getItem(STORAGE_KEY);
-  if (salvo) {
-    return JSON.parse(salvo);
+async function carregarHorarios(): Promise<HorariosPorGrupo> {
+  try {
+    // Tenta carregar do servidor
+    const horarios = await apiBuscarHorarios();
+    if (Object.keys(horarios).length > 0) {
+      return horarios;
+    }
+  } catch (error) {
+    console.error("Erro ao carregar horários do servidor:", error);
+    // Fallback para localStorage
+    const salvo = localStorage.getItem(STORAGE_KEY);
+    if (salvo) {
+      return JSON.parse(salvo);
+    }
   }
 
+  // Se não houver dados, cria estrutura vazia
   const grupos = getGrupos();
   const inicial: HorariosPorGrupo = {};
   grupos.forEach((g) => {
@@ -316,9 +342,14 @@ function App() {
   const [aba, setAba] = useState<AbaId>("quadro");
 
   // Horário oficial
-  const [horarios, setHorarios] = useState<HorariosPorGrupo>(() =>
-    carregarHorarios()
-  );
+  const [horarios, setHorarios] = useState<HorariosPorGrupo>({});
+  
+  // Carrega horários do servidor ao montar
+  useEffect(() => {
+    if (usuarioAtual) {
+      carregarHorarios().then(setHorarios).catch(console.error);
+    }
+  }, [usuarioAtual]);
   // Horário de rascunho (simulador)
   const [horariosRascunho, setHorariosRascunho] = useState<HorariosPorGrupo>(
     () => carregarHorariosRascunho()
@@ -337,12 +368,31 @@ function App() {
     carregarLogLocal()
   );
 
-  const [usuarioAtual, setUsuarioAtual] = useState<UsuarioAtual | null>(
-    () => carregarUsuario()
-  );
-  const [nomeLogin, setNomeLogin] = useState("");
-  const [perfilLogin, setPerfilLogin] = useState<Perfil>("professor");
-  const [pinLogin, setPinLogin] = useState("");
+  const [usuarioAtual, setUsuarioAtual] = useState<UsuarioAtual | null>(null);
+  
+  // Verifica sessão ao montar
+  useEffect(() => {
+    verificarSessao().then((usuario) => {
+      if (usuario) {
+        setUsuarioAtual({
+          nome: usuario.nome,
+          perfil: usuario.perfil as Perfil,
+        });
+      } else {
+        // Fallback para localStorage
+        const local = carregarUsuario();
+        if (local) {
+          setUsuarioAtual(local);
+        }
+      }
+    }).catch(() => {
+      // Fallback para localStorage
+      const local = carregarUsuario();
+      if (local) {
+        setUsuarioAtual(local);
+      }
+    });
+  }, []);
   const [deferredPrompt, setDeferredPrompt] =
     useState<BeforeInstallPromptEvent | null>(null);
   const [pwaDisponivel, setPwaDisponivel] = useState(false);
@@ -357,12 +407,32 @@ function App() {
   });
   const [numAulaCadastro, setNumAulaCadastro] = useState(1);
 
-  const [snapshots, setSnapshots] = useState<SnapshotHorario[]>(() =>
-    carregarSnapshots()
-  );
+  const [snapshots, setSnapshots] = useState<SnapshotHorario[]>([]);
   const [snapshotSelecionadoId, setSnapshotSelecionadoId] = useState<
     string | null
   >(null);
+
+  // Carrega snapshots do servidor
+  useEffect(() => {
+    if (usuarioAtual) {
+      apiBuscarSnapshots(50)
+        .then((snaps) => {
+          setSnapshots(
+            snaps.map((s) => ({
+              id: s.id.toString(),
+              timestamp: s.criadoEm,
+              usuario: `${s.usuario.nome} (${s.usuario.perfil})`,
+              descricao: s.descricao || s.nome,
+              horarios: s.dados,
+            }))
+          );
+        })
+        .catch(() => {
+          // Fallback para localStorage
+          setSnapshots(carregarSnapshots());
+        });
+    }
+  }, [usuarioAtual]);
 
   const fonteHorarios = modoSimulador ? horariosRascunho : horarios;
 
@@ -370,9 +440,10 @@ function App() {
     fonteHorarios[grupoSelecionado] ||
     criarHorarioVazioParaGrupo(grupoSelecionado);
 
-  useEffect(() => {
-    salvarHorarios(horarios);
-  }, [horarios]);
+  // Não salva mais no localStorage, apenas no servidor
+  // useEffect(() => {
+  //   salvarHorarios(horarios);
+  // }, [horarios]);
 
   useEffect(() => {
     salvarHorariosRascunho(horariosRascunho);
@@ -481,7 +552,7 @@ function App() {
   //   });
   // }
 
-  function limparHorarioGrupoAtual() {
+  async function limparHorarioGrupoAtual() {
     if (!usuarioAtual || !podeEditar(usuarioAtual) || modoPublico) {
       alert(
         "Apenas usuários com perfil de Direção ou Vice-direção podem limpar o horário."
@@ -494,21 +565,31 @@ function App() {
         `Deseja limpar o horário do grupo selecionado (${grupoSelecionado})?`
       )
     ) {
-      const setter = modoSimulador ? setHorariosRascunho : setHorarios;
+      try {
+        // Limpa no servidor
+        if (!modoSimulador) {
+          await apiLimparGrupo(grupoSelecionado);
+        }
 
-      setter((prev) => {
-        const copia: HorariosPorGrupo = structuredClone(prev);
-        copia[grupoSelecionado] = criarHorarioVazioParaGrupo(grupoSelecionado);
-        return copia;
-      });
+        const setter = modoSimulador ? setHorariosRascunho : setHorarios;
 
-      adicionarLog(
-        "limpar_grupo",
-        `Horário do grupo ${grupoSelecionado} foi limpo.${
-          modoSimulador ? " (rascunho)" : ""
-        }`,
-        grupoSelecionado
-      );
+        setter((prev) => {
+          const copia: HorariosPorGrupo = structuredClone(prev);
+          copia[grupoSelecionado] = criarHorarioVazioParaGrupo(grupoSelecionado);
+          return copia;
+        });
+
+        adicionarLog(
+          "limpar_grupo",
+          `Horário do grupo ${grupoSelecionado} foi limpo.${
+            modoSimulador ? " (rascunho)" : ""
+          }`,
+          grupoSelecionado
+        );
+      } catch (error) {
+        console.error("Erro ao limpar grupo:", error);
+        alert("Erro ao limpar grupo. Tente novamente.");
+      }
     }
   }
 
@@ -685,44 +766,15 @@ function App() {
     return alertas;
   })();
 
-  // ---------- Login / Logout ----------
+  // ---------- Logout ----------
 
-  function handleLogin() {
-    if (!nomeLogin.trim()) {
-      alert("Digite um nome para login.");
-      return;
-    }
-    const nome = nomeLogin.trim();
-
-    // Validação de PIN para perfis administrativos (opcional - só valida se preenchido)
-    if (perfilLogin === "direcao" || perfilLogin === "vice_direcao") {
-      // Se o PIN foi preenchido, valida; se estiver vazio, permite login sem PIN
-      if (pinLogin.trim()) {
-        const pinCorreto =
-          perfilLogin === "direcao" ? PIN_DIRECAO : PIN_VICE_DIRECAO;
-        if (pinLogin.trim() !== pinCorreto) {
-          alert("PIN incorreto para este perfil.");
-          return;
-        }
-      }
-      // Se não preencheu PIN, permite login normalmente (PIN é opcional)
-    }
-    const usuario: UsuarioAtual = {
-      nome,
-      perfil: perfilLogin,
-    };
-    setUsuarioAtual(usuario);
-    salvarUsuario(usuario);
-    setNomeLogin("");
-    setPinLogin("");
-    adicionarLog(
-      "login",
-      `Login efetuado por "${nome}" como ${PERFIS_LABEL[perfilLogin]}.`
-    );
-  }
-
-  function handleLogout() {
+  async function handleLogout() {
     const nome = usuarioAtual?.nome;
+    try {
+      await apiFazerLogout();
+    } catch (error) {
+      console.error("Erro ao fazer logout:", error);
+    }
     setUsuarioAtual(null);
     salvarUsuario(null);
     adicionarLog("logout", `Logout de "${nome ?? "usuário desconhecido"}".`);
@@ -730,7 +782,7 @@ function App() {
 
   // ---------- Ações da aba Cadastro por Turma ----------
 
-  function handleSalvarCadastro() {
+  async function handleSalvarCadastro() {
     if (!usuarioAtual || !podeEditar(usuarioAtual) || modoPublico) {
       alert(
         "Apenas usuários com perfil de Direção ou Vice-direção podem salvar ou alterar aulas."
@@ -749,35 +801,52 @@ function App() {
       return;
     }
 
-    const setter = modoSimulador ? setHorariosRascunho : setHorarios;
-
-    setter((prev) => {
-      const copia: HorariosPorGrupo = structuredClone(prev);
-
-      if (!copia[grupoSelecionado]) {
-        copia[grupoSelecionado] = criarHorarioVazioParaGrupo(grupoSelecionado);
+    try {
+      // Salva no servidor
+      if (!modoSimulador) {
+        await apiSalvarHorario(
+          grupoSelecionado,
+          diaCadastro,
+          slotId,
+          discCadastro.trim(),
+          profCadastro.trim(),
+          turmaCadastro.trim()
+        );
       }
 
-      const horarioGrupo = copia[grupoSelecionado];
-      const atual = horarioGrupo[diaCadastro][slotId] || {
-        disciplina: "",
-        professor: "",
-        turma: "",
-      };
+      const setter = modoSimulador ? setHorariosRascunho : setHorarios;
 
-      atual.turma = turmaCadastro.trim();
-      atual.professor = profCadastro.trim();
-      atual.disciplina = discCadastro.trim();
+      setter((prev) => {
+        const copia: HorariosPorGrupo = structuredClone(prev);
 
-      horarioGrupo[diaCadastro][slotId] = atual;
+        if (!copia[grupoSelecionado]) {
+          copia[grupoSelecionado] = criarHorarioVazioParaGrupo(grupoSelecionado);
+        }
 
-      return copia;
-    });
+        const horarioGrupo = copia[grupoSelecionado];
+        const atual = horarioGrupo[diaCadastro][slotId] || {
+          disciplina: "",
+          professor: "",
+          turma: "",
+        };
 
-    adicionarLog("salvar_aula", `Aula salva: turma=${turmaCadastro.trim()}, prof=${profCadastro.trim()}, disc=${discCadastro.trim()}, dia=${diaCadastro}, aula=${numAulaCadastro}, grupo=${grupoSelecionado}.`, grupoSelecionado);
+        atual.turma = turmaCadastro.trim();
+        atual.professor = profCadastro.trim();
+        atual.disciplina = discCadastro.trim();
+
+        horarioGrupo[diaCadastro][slotId] = atual;
+
+        return copia;
+      });
+
+      adicionarLog("salvar_aula", `Aula salva: turma=${turmaCadastro.trim()}, prof=${profCadastro.trim()}, disc=${discCadastro.trim()}, dia=${diaCadastro}, aula=${numAulaCadastro}, grupo=${grupoSelecionado}.`, grupoSelecionado);
+    } catch (error) {
+      console.error("Erro ao salvar horário:", error);
+      alert("Erro ao salvar horário. Tente novamente.");
+    }
   }
 
-  function handleLimparCadastroCampo() {
+  async function handleLimparCadastroCampo() {
     if (!usuarioAtual || !podeEditar(usuarioAtual) || modoPublico) {
       alert(
         "Apenas usuários com perfil de Direção ou Vice-direção podem limpar este horário."
@@ -791,26 +860,36 @@ function App() {
       return;
     }
 
-    const setter = modoSimulador ? setHorariosRascunho : setHorarios;
+    try {
+      // Limpa no servidor
+      if (!modoSimulador) {
+        await apiLimparHorario(grupoSelecionado, diaCadastro, slotId);
+      }
 
-    setter((prev) => {
-      const copia: HorariosPorGrupo = structuredClone(prev);
+      const setter = modoSimulador ? setHorariosRascunho : setHorarios;
 
-      if (!copia[grupoSelecionado]) return prev;
+      setter((prev) => {
+        const copia: HorariosPorGrupo = structuredClone(prev);
 
-      const horarioGrupo = copia[grupoSelecionado];
-      horarioGrupo[diaCadastro][slotId] = null;
+        if (!copia[grupoSelecionado]) return prev;
 
-      return copia;
-    });
+        const horarioGrupo = copia[grupoSelecionado];
+        horarioGrupo[diaCadastro][slotId] = null;
 
-    adicionarLog(
-      "limpar_aula",
-      `Horário limpo: dia=${diaCadastro}, aula=${numAulaCadastro}, grupo=${grupoSelecionado}.${
-        modoSimulador ? " (rascunho)" : ""
-      }`,
-      grupoSelecionado
-    );
+        return copia;
+      });
+
+      adicionarLog(
+        "limpar_aula",
+        `Horário limpo: dia=${diaCadastro}, aula=${numAulaCadastro}, grupo=${grupoSelecionado}.${
+          modoSimulador ? " (rascunho)" : ""
+        }`,
+        grupoSelecionado
+      );
+    } catch (error) {
+      console.error("Erro ao limpar horário:", error);
+      alert("Erro ao limpar horário. Tente novamente.");
+    }
   }
 
   // ---------- Exportar log como arquivo ----------
@@ -833,7 +912,7 @@ function App() {
 
   // ---------- Snapshots (versões do horário) ----------
 
-  function handleSalvarSnapshot() {
+  async function handleSalvarSnapshot() {
     if (!usuarioAtual || !podeEditar(usuarioAtual) || modoPublico) {
       alert(
         "Apenas Direção ou Vice-direção podem salvar versões do horário."
@@ -846,22 +925,34 @@ function App() {
     );
     if (descricao === null) return;
 
-    const novo: SnapshotHorario = {
-      id: `${Date.now()}`,
-      timestamp: new Date().toISOString(),
-      usuario: `${usuarioAtual.nome} (${PERFIS_LABEL[usuarioAtual.perfil]})`,
-      descricao: descricao.trim() || "Versão sem descrição",
-      horarios: structuredClone(horarios),
-    };
+    const nome = descricao.trim() || `Versão ${new Date().toLocaleString("pt-BR")}`;
 
-    setSnapshots((prev) => [...prev, novo]);
-    adicionarLog(
-      "snapshot_criado",
-      `Snapshot salvo: "${novo.descricao}" por ${novo.usuario}.`
-    );
+    try {
+      await apiCriarSnapshot(nome, descricao.trim() || null, structuredClone(horarios));
+      
+      // Atualiza lista local
+      const novosSnapshots = await apiBuscarSnapshots(50);
+      setSnapshots(
+        novosSnapshots.map((s) => ({
+          id: s.id.toString(),
+          timestamp: s.criadoEm,
+          usuario: `${s.usuario.nome} (${s.usuario.perfil})`,
+          descricao: s.descricao || s.nome,
+          horarios: s.dados,
+        }))
+      );
+
+      adicionarLog(
+        "snapshot_criado",
+        `Snapshot salvo: "${nome}" por ${usuarioAtual.nome}.`
+      );
+      alert("Versão salva com sucesso!");
+    } catch (error: any) {
+      alert(`Erro ao salvar versão: ${error.message}`);
+    }
   }
 
-  function handleRestaurarSnapshot() {
+  async function handleRestaurarSnapshot() {
     if (!usuarioAtual || !podeEditar(usuarioAtual) || modoPublico) {
       alert(
         "Apenas Direção ou Vice-direção podem restaurar versões do horário."
@@ -873,27 +964,48 @@ function App() {
       return;
     }
 
-    const snap = snapshots.find((s) => s.id === snapshotSelecionadoId);
-    if (!snap) {
-      alert("Versão não encontrada.");
-      return;
-    }
+    try {
+      const snap = await apiBuscarSnapshot(parseInt(snapshotSelecionadoId));
+      
+      if (
+        !confirm(
+          `Tem certeza que deseja restaurar a versão "${snap.descricao || snap.nome}"? Isso substituirá o horário atual de todos os grupos.`
+        )
+      ) {
+        return;
+      }
 
-    if (
-      !confirm(
-        `Tem certeza que deseja restaurar a versão "${snap.descricao}"? Isso substituirá o horário atual de todos os grupos.`
-      )
-    ) {
-      return;
-    }
+      setHorarios(structuredClone(snap.dados));
+      
+      // Salva cada horário no servidor
+      for (const [grupoId, horarioGrupo] of Object.entries(snap.dados)) {
+        for (const [dia, slots] of Object.entries(horarioGrupo)) {
+          for (const [slotIdStr, aula] of Object.entries(slots)) {
+            const slotId = parseInt(slotIdStr);
+            if (aula) {
+              await apiSalvarHorario(
+                grupoId,
+                dia,
+                slotId,
+                aula.disciplina,
+                aula.professor,
+                aula.turma
+              );
+            }
+          }
+        }
+      }
 
-    setHorarios(structuredClone(snap.horarios));
-    adicionarLog(
-      "snapshot_restaurado",
-      `Snapshot restaurado: "${snap.descricao}" (salvo em ${new Date(
-        snap.timestamp
-      ).toLocaleString("pt-BR")}).`
-    );
+      adicionarLog(
+        "snapshot_restaurado",
+        `Snapshot restaurado: "${snap.descricao || snap.nome}" (salvo em ${new Date(
+          snap.criadoEm
+        ).toLocaleString("pt-BR")}).`
+      );
+      alert("Versão restaurada com sucesso!");
+    } catch (error: any) {
+      alert(`Erro ao restaurar versão: ${error.message}`);
+    }
   }
 
   function obterDiferencasComSnapshotSelecionado() {
@@ -1459,6 +1571,32 @@ function App() {
 
   // ---------- Render ----------
 
+  // Se não estiver logado e não for modo público, mostra tela de autenticação
+  if (!usuarioAtual && !modoPublico) {
+    return (
+      <AuthScreen
+        onLogin={(nome, perfil) => {
+          const usuario: UsuarioAtual = { nome, perfil };
+          setUsuarioAtual(usuario);
+          salvarUsuario(usuario);
+          adicionarLog(
+            "login",
+            `Login efetuado por "${nome}" como ${PERFIS_LABEL[perfil]}.`
+          );
+        }}
+        onLoginRapido={(nome, perfil) => {
+          const usuario: UsuarioAtual = { nome, perfil };
+          setUsuarioAtual(usuario);
+          salvarUsuario(usuario);
+          adicionarLog(
+            "login",
+            `Login rápido efetuado por "${nome}" como ${PERFIS_LABEL[perfil]}.`
+          );
+        }}
+      />
+    );
+  }
+
   return (
     <div className="app-container">
       {/* Cabeçalho SEDUC */}
@@ -1495,41 +1633,7 @@ function App() {
                 Sair
               </button>
             </>
-          ) : (
-            <>
-              <input
-                className="login-input"
-                placeholder="Seu nome para login"
-                value={nomeLogin}
-                onChange={(e) => setNomeLogin(e.target.value)}
-              />
-              <select
-                className="cadastro-select"
-                value={perfilLogin}
-                onChange={(e) => setPerfilLogin(e.target.value as Perfil)}
-              >
-                <option value="direcao">Direção</option>
-                <option value="vice_direcao">Vice-direção</option>
-                <option value="coordenacao">Coordenação</option>
-                <option value="goe">GOE</option>
-                <option value="aoe">AOE</option>
-                <option value="professor">Professor(a)</option>
-              </select>
-              {(perfilLogin === "direcao" || perfilLogin === "vice_direcao") && (
-                <input
-                  className="login-input"
-                  type="password"
-                  placeholder="PIN (opcional)"
-                  value={pinLogin}
-                  onChange={(e) => setPinLogin(e.target.value)}
-                  style={{ width: "100px" }}
-                />
-              )}
-              <button className="button-primary" onClick={handleLogin}>
-                Entrar
-              </button>
-            </>
-          )}
+          ) : null}
         </div>
       </header>
 
@@ -1555,6 +1659,14 @@ function App() {
 
               {/* Abas */}
               <div className="tab-bar">
+                <button
+                  className={
+                    "tab-button " + (aba === "dashboard" ? "tab-button-active" : "")
+                  }
+                  onClick={() => setAba("dashboard")}
+                >
+                  📊 Dashboard
+                </button>
                 <button
                   className={
                     "tab-button " + (aba === "quadro" ? "tab-button-active" : "")
@@ -1588,6 +1700,15 @@ function App() {
                   onClick={() => setAba("relatorios")}
                 >
                   Relatórios de carga horária
+                </button>
+                <button
+                  className={
+                    "tab-button " +
+                    (aba === "historico" ? "tab-button-active" : "")
+                  }
+                  onClick={() => setAba("historico")}
+                >
+                  📜 Histórico
                 </button>
                 {podeEditar(usuarioAtual) && (
                   <button
@@ -1730,6 +1851,11 @@ function App() {
               </button>
             </div>
           </div>
+
+          {/* ---------- ABA DASHBOARD ---------- */}
+          {aba === "dashboard" && (
+            <Dashboard horarios={horarios} />
+          )}
 
           {/* ---------- ABA QUADRO GERAL (somente leitura) ---------- */}
           {aba === "quadro" && (
@@ -2533,6 +2659,18 @@ function App() {
                 </div>
               </div>
             </section>
+          )}
+
+          {/* ---------- ABA HISTÓRICO DE ALTERAÇÕES ---------- */}
+          {aba === "historico" && (
+            <HistoricoAlteracoes
+              usuarioId={undefined}
+              horariosAtuais={horarios}
+              onRestaurarSnapshot={(dados) => {
+                setHorarios(dados);
+                alert("Horário restaurado! Recarregue a página para ver as mudanças.");
+              }}
+            />
           )}
 
           {/* ---------- ABA CONFIGURAÇÃO DA ESCOLA ---------- */}
