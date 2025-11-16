@@ -689,6 +689,171 @@ function App() {
 
   const diferencasSnapshot = obterDiferencasComSnapshotSelecionado();
 
+  // Estados para exportação específica
+  const [professorExport, setProfessorExport] = useState<string>("");
+  const [turmaExport, setTurmaExport] = useState<string>("");
+
+  // ---------- Exportações por professor / turma ----------
+
+  function gerarCSV(conteudo: string, nomeArquivo: string) {
+    const blob = new Blob([conteudo], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = nomeArquivo;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function exportarProfessorCSV() {
+    if (!professorExport) {
+      alert("Selecione um professor para exportar.");
+      return;
+    }
+    const prof = professorExport;
+    const linhas: string[] = [];
+    linhas.push("Professor,Dia,Aula,Turma,Disciplina,Grupo");
+
+    const aulasProf = gradeProf[prof] || {};
+    diasSemana.forEach((dia) => {
+      const aulasDia = aulasProf[dia] || {};
+      Array.from({ length: 6 }).forEach((_, i) => {
+        const numAula = i + 1;
+        const info = aulasDia[numAula];
+        if (!info) return;
+        linhas.push(
+          `"${prof}","${dia}",${numAula},"${info.turma.replace(
+            /"/g,
+            '""'
+          )}","${info.disciplina.replace(/"/g, '""')}","${infoGrupo.nome}"`
+        );
+      });
+    });
+
+    gerarCSV(linhas.join("\n"), `horario-professor-${prof}.csv`);
+  }
+
+  function exportarTurmaCSV() {
+    if (!turmaExport) {
+      alert("Selecione uma turma para exportar.");
+      return;
+    }
+    const turma = turmaExport;
+    const linhas: string[] = [];
+    linhas.push("Turma,Dia,Aula,Professor,Disciplina,Grupo");
+
+    const aulasTurma = gradeTurma[turma] || {};
+    diasSemana.forEach((dia) => {
+      const aulasDia = aulasTurma[dia] || {};
+      Array.from({ length: 6 }).forEach((_, i) => {
+        const numAula = i + 1;
+        const info = aulasDia[numAula];
+        if (!info) return;
+        linhas.push(
+          `"${turma}","${dia}",${numAula},"${info.professor.replace(
+            /"/g,
+            '""'
+          )}","${info.disciplina.replace(
+            /"/g,
+            '""'
+          )}","${infoGrupo.nome}"`
+        );
+      });
+    });
+
+    gerarCSV(linhas.join("\n"), `horario-turma-${turma}.csv`);
+  }
+
+  function abrirJanelaImpressao(html: string, titulo: string) {
+    const novaJanela = window.open("", "_blank");
+    if (!novaJanela) return;
+    novaJanela.document.write(`
+      <html>
+        <head>
+          <meta charset="UTF-8" />
+          <title>${titulo}</title>
+          <style>
+            body { font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; padding: 16px; }
+            h1 { font-size: 18px; margin-bottom: 8px; }
+            h2 { font-size: 14px; margin-top: 0; margin-bottom: 16px; color: #4b5563; }
+            table { width: 100%; border-collapse: collapse; font-size: 11px; }
+            th, td { border: 1px solid #e5e7eb; padding: 4px 6px; text-align: left; }
+            th { background: #f3f4f6; }
+            tr:nth-child(odd) td { background: #f9fafb; }
+          </style>
+        </head>
+        <body>
+          ${html}
+        </body>
+      </html>
+    `);
+    novaJanela.document.close();
+    novaJanela.focus();
+    novaJanela.print();
+  }
+
+  function exportarProfessorPDF() {
+    if (!professorExport) {
+      alert("Selecione um professor para gerar o PDF.");
+      return;
+    }
+    const prof = professorExport;
+    const aulasProf = gradeProf[prof] || {};
+
+    let html = `<h1>Horário do professor(a) ${prof}</h1>`;
+    html += `<h2>Grupo: ${infoGrupo.nome} – ${infoGrupo.descricao}</h2>`;
+    html += `<table><thead><tr><th>Dia</th><th>Aula</th><th>Turma</th><th>Disciplina</th></tr></thead><tbody>`;
+
+    diasSemana.forEach((dia) => {
+      const aulasDia = aulasProf[dia] || {};
+      Array.from({ length: 6 }).forEach((_, i) => {
+        const numAula = i + 1;
+        const info = aulasDia[numAula];
+        if (!info) return;
+        html += `<tr>
+          <td>${dia}</td>
+          <td>${numAula}ª</td>
+          <td>${info.turma || ""}</td>
+          <td>${info.disciplina || ""}</td>
+        </tr>`;
+      });
+    });
+
+    html += "</tbody></table>";
+    abrirJanelaImpressao(html, `Horario-prof-${prof}`);
+  }
+
+  function exportarTurmaPDF() {
+    if (!turmaExport) {
+      alert("Selecione uma turma para gerar o PDF.");
+      return;
+    }
+    const turma = turmaExport;
+    const aulasTurma = gradeTurma[turma] || {};
+
+    let html = `<h1>Horário da turma ${turma}</h1>`;
+    html += `<h2>Grupo: ${infoGrupo.nome} – ${infoGrupo.descricao}</h2>`;
+    html += `<table><thead><tr><th>Dia</th><th>Aula</th><th>Professor(a)</th><th>Disciplina</th></tr></thead><tbody>`;
+
+    diasSemana.forEach((dia) => {
+      const aulasDia = aulasTurma[dia] || {};
+      Array.from({ length: 6 }).forEach((_, i) => {
+        const numAula = i + 1;
+        const info = aulasDia[numAula];
+        if (!info) return;
+        html += `<tr>
+          <td>${dia}</td>
+          <td>${numAula}ª</td>
+          <td>${info.professor || ""}</td>
+          <td>${info.disciplina || ""}</td>
+        </tr>`;
+      });
+    });
+
+    html += "</tbody></table>";
+    abrirJanelaImpressao(html, `Horario-turma-${turma}`);
+  }
+
   // ---------- Render ----------
 
   return (
@@ -939,6 +1104,68 @@ function App() {
                 >
                   <span>📄</span>
                   Exportar log (JSON)
+                </button>
+              </div>
+
+              {/* Exportações específicas por professor / turma */}
+              <div
+                style={{
+                  marginTop: "0.75rem",
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: "0.5rem",
+                  alignItems: "center",
+                  fontSize: "0.8rem",
+                }}
+              >
+                <span style={{ fontWeight: 500 }}>Exportar por professor:</span>
+                <select
+                  className="app-select"
+                  value={professorExport}
+                  onChange={(e) => setProfessorExport(e.target.value)}
+                >
+                  <option value="">Selecione um professor</option>
+                  {professoresOrdenados.map((prof) => (
+                    <option key={prof} value={prof}>
+                      {prof}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  className="button-primary"
+                  onClick={exportarProfessorPDF}
+                >
+                  🖨️ PDF
+                </button>
+                <button className="button-primary" onClick={exportarProfessorCSV}>
+                  📊 CSV/Excel
+                </button>
+
+                <span
+                  style={{
+                    fontWeight: 500,
+                    marginLeft: "1rem",
+                  }}
+                >
+                  Exportar por turma:
+                </span>
+                <select
+                  className="app-select"
+                  value={turmaExport}
+                  onChange={(e) => setTurmaExport(e.target.value)}
+                >
+                  <option value="">Selecione uma turma</option>
+                  {turmasOrdenadas.map((turma) => (
+                    <option key={turma} value={turma}>
+                      {turma}
+                    </option>
+                  ))}
+                </select>
+                <button className="button-primary" onClick={exportarTurmaPDF}>
+                  🖨️ PDF
+                </button>
+                <button className="button-primary" onClick={exportarTurmaCSV}>
+                  📊 CSV/Excel
                 </button>
               </div>
 
