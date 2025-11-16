@@ -7,7 +7,8 @@ export interface TimeSlot {
   tipo: TipoSlot;
 }
 
-export type GrupoId = "fund2" | "medio" | "tarde_456" | "tarde_123" | "noite";
+// GrupoId agora é string para permitir IDs dinâmicos
+export type GrupoId = string;
 
 export interface GrupoInfo {
   id: GrupoId;
@@ -16,8 +17,7 @@ export interface GrupoInfo {
 }
 
 // Configuração completa da escola atual.
-// Para adaptar a outra escola, você pode copiar este objeto, ajustar grupos e slots,
-// mantendo os mesmos ids de grupos ou adaptando o tipo GrupoId conforme necessário.
+// Agora pode ser editada dinamicamente pela interface de configuração.
 export interface EscolaConfig {
   nomeEscola: string;
   grupos: GrupoInfo[];
@@ -114,7 +114,82 @@ export const escolaConfig: EscolaConfig = {
   diasSemana: ["Segunda", "Terça", "Quarta", "Quinta", "Sexta"],
 };
 
+// Chave para armazenar configuração no localStorage
+const CONFIG_STORAGE_KEY = "horario-escolar-config";
+
+// Função para carregar configuração salva ou usar a padrão
+export function carregarConfiguracao(): EscolaConfig {
+  try {
+    const salvo = localStorage.getItem(CONFIG_STORAGE_KEY);
+    if (salvo) {
+      const config = JSON.parse(salvo) as EscolaConfig;
+      // Validação básica
+      if (
+        config.nomeEscola &&
+        Array.isArray(config.grupos) &&
+        config.grupos.length > 0 &&
+        config.slotsPorGrupo &&
+        Array.isArray(config.diasSemana) &&
+        config.diasSemana.length > 0
+      ) {
+        return config;
+      }
+    }
+  } catch {
+    // Se der erro, usa a configuração padrão
+  }
+  return escolaConfig;
+}
+
+// Função para salvar configuração
+export function salvarConfiguracao(config: EscolaConfig) {
+  try {
+    localStorage.setItem(CONFIG_STORAGE_KEY, JSON.stringify(config));
+  } catch (error) {
+    console.error("Erro ao salvar configuração:", error);
+  }
+}
+
+// Função para resetar para configuração padrão
+export function resetarConfiguracao() {
+  try {
+    localStorage.removeItem(CONFIG_STORAGE_KEY);
+  } catch (error) {
+    console.error("Erro ao resetar configuração:", error);
+  }
+}
+
+// Variável global para a configuração atual (será atualizada dinamicamente)
+let configAtual: EscolaConfig = carregarConfiguracao();
+
+// Função para atualizar a configuração atual
+export function atualizarConfiguracao(config: EscolaConfig) {
+  configAtual = config;
+  salvarConfiguracao(config);
+}
+
+// Função para obter a configuração atual
+export function obterConfiguracao(): EscolaConfig {
+  return configAtual;
+}
+
 // Exports derivados para continuar usando a mesma API no restante do app
-export const grupos = escolaConfig.grupos;
-export const slotsPorGrupo = escolaConfig.slotsPorGrupo;
-export const diasSemana = escolaConfig.diasSemana;
+// Agora usam a configuração dinâmica
+export function getGrupos(): GrupoInfo[] {
+  return configAtual.grupos;
+}
+
+export function getSlotsPorGrupo(): Record<GrupoId, TimeSlot[]> {
+  return configAtual.slotsPorGrupo;
+}
+
+export function getDiasSemana(): string[] {
+  return configAtual.diasSemana;
+}
+
+// Nota: Os exports estáticos abaixo são calculados uma vez no carregamento.
+// Para obter valores atualizados, use as funções getGrupos(), getSlotsPorGrupo(), getDiasSemana()
+// ou obterConfiguracao() diretamente.
+export const grupos = getGrupos();
+export const slotsPorGrupo = getSlotsPorGrupo();
+export const diasSemana = getDiasSemana();

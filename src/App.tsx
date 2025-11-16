@@ -1,13 +1,16 @@
 import { useEffect, useState } from "react";
 import {
-  grupos,
-  slotsPorGrupo,
-  diasSemana,
+  getGrupos,
+  getSlotsPorGrupo,
+  getDiasSemana,
+  obterConfiguracao,
   type GrupoId,
   type TimeSlot,
+  type GrupoInfo,
 } from "./scheduleConfig";
 import type { HorarioCompleto, HorariosPorGrupo } from "./types";
 import logo from "./assets/logo.svg";
+import { ConfiguracaoEscola } from "./ConfiguracaoEscola";
 
 const STORAGE_KEY = "horario-escolar-manha-por-grupo";
 const STORAGE_DRAFT_KEY = "horario-escolar-rascunho-por-grupo";
@@ -20,7 +23,7 @@ const SNAPSHOT_KEY = "horario-escolar-snapshots";
 const PIN_DIRECAO = "1234";
 const PIN_VICE_DIRECAO = "5678";
 
-type AbaId = "quadro" | "cadastro" | "grades" | "relatorios";
+type AbaId = "quadro" | "cadastro" | "grades" | "relatorios" | "configuracao";
 
 type Perfil =
   | "direcao"
@@ -295,7 +298,17 @@ function construirGradeTurma(
 // ---------- Componente principal ----------
 
 function App() {
-  const [grupoSelecionado, setGrupoSelecionado] = useState<GrupoId>("fund2");
+  // Configuração dinâmica da escola
+  const [configVersion, setConfigVersion] = useState(0); // Para forçar re-render quando config mudar
+  const grupos = getGrupos();
+  const slotsPorGrupo = getSlotsPorGrupo();
+  const diasSemana = getDiasSemana();
+  const config = obterConfiguracao();
+
+  const [grupoSelecionado, setGrupoSelecionado] = useState<GrupoId>(() => {
+    const grupos = getGrupos();
+    return grupos.length > 0 ? grupos[0].id : "";
+  });
   const [aba, setAba] = useState<AbaId>("quadro");
 
   // Horário oficial
@@ -334,7 +347,10 @@ function App() {
   const [turmaCadastro, setTurmaCadastro] = useState("");
   const [profCadastro, setProfCadastro] = useState("");
   const [discCadastro, setDiscCadastro] = useState("");
-  const [diaCadastro, setDiaCadastro] = useState(diasSemana[0]);
+  const [diaCadastro, setDiaCadastro] = useState(() => {
+    const dias = getDiasSemana();
+    return dias.length > 0 ? dias[0] : "";
+  });
   const [numAulaCadastro, setNumAulaCadastro] = useState(1);
 
   const [snapshots, setSnapshots] = useState<SnapshotHorario[]>(() =>
@@ -674,18 +690,18 @@ function App() {
     }
     const nome = nomeLogin.trim();
 
-    // Validação de PIN para perfis administrativos
+    // Validação de PIN para perfis administrativos (opcional - só valida se preenchido)
     if (perfilLogin === "direcao" || perfilLogin === "vice_direcao") {
-      if (!pinLogin.trim()) {
-        alert("Digite o PIN para acessar com este perfil.");
-        return;
+      // Se o PIN foi preenchido, valida; se estiver vazio, permite login sem PIN
+      if (pinLogin.trim()) {
+        const pinCorreto =
+          perfilLogin === "direcao" ? PIN_DIRECAO : PIN_VICE_DIRECAO;
+        if (pinLogin.trim() !== pinCorreto) {
+          alert("PIN incorreto para este perfil.");
+          return;
+        }
       }
-      const pinCorreto =
-        perfilLogin === "direcao" ? PIN_DIRECAO : PIN_VICE_DIRECAO;
-      if (pinLogin.trim() !== pinCorreto) {
-        alert("PIN incorreto para este perfil.");
-        return;
-      }
+      // Se não preencheu PIN, permite login normalmente (PIN é opcional)
     }
     const usuario: UsuarioAtual = {
       nome,
@@ -1447,7 +1463,7 @@ function App() {
           <img src={logo} alt="Logo da escola" className="app-logo" />
           <div>
             <div className="app-header-title">
-              Secretaria da Educação do Estado de São Paulo
+              {config.nomeEscola || "Secretaria da Educação do Estado de São Paulo"}
             </div>
             <div className="app-header-subtitle">
               Sistema de Organização de Horário – Manhã, Tarde e Noite
@@ -1499,10 +1515,10 @@ function App() {
                 <input
                   className="login-input"
                   type="password"
-                  placeholder="PIN"
+                  placeholder="PIN (opcional)"
                   value={pinLogin}
                   onChange={(e) => setPinLogin(e.target.value)}
-                  style={{ width: "80px" }}
+                  style={{ width: "100px" }}
                 />
               )}
               <button className="button-primary" onClick={handleLogin}>
@@ -1569,6 +1585,17 @@ function App() {
                 >
                   Relatórios de carga horária
                 </button>
+                {podeEditar(usuarioAtual) && (
+                  <button
+                    className={
+                      "tab-button " +
+                      (aba === "configuracao" ? "tab-button-active" : "")
+                    }
+                    onClick={() => setAba("configuracao")}
+                  >
+                    ⚙️ Configuração
+                  </button>
+                )}
               </div>
             </div>
 
@@ -2502,6 +2529,22 @@ function App() {
                 </div>
               </div>
             </section>
+          )}
+
+          {/* ---------- ABA CONFIGURAÇÃO DA ESCOLA ---------- */}
+          {aba === "configuracao" && (
+            <ConfiguracaoEscola
+              onConfigChange={() => {
+                setConfigVersion((v) => v + 1);
+                // Atualiza grupo selecionado se o atual não existir mais
+                const novosGrupos = getGrupos();
+                if (!novosGrupos.find((g) => g.id === grupoSelecionado)) {
+                  setGrupoSelecionado(
+                    novosGrupos.length > 0 ? novosGrupos[0].id : ""
+                  );
+                }
+              }}
+            />
           )}
         </div>
       </main>
