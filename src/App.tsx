@@ -36,6 +36,7 @@ interface LogEntry {
   usuario: string | null;
   acao: string; // "login", "logout", "salvar_aula", "limpar_aula", "limpar_grupo"
   detalhes: string;
+  grupoId?: GrupoId | null;
 }
 
 interface UsuarioAtual {
@@ -350,7 +351,7 @@ function App() {
     })();
   }, []);
 
-  function adicionarLog(acao: string, detalhes: string) {
+  function adicionarLog(acao: string, detalhes: string, grupoId?: GrupoId) {
     const novo: LogEntry = {
       timestamp: new Date().toISOString(),
       usuario: usuarioAtual
@@ -358,6 +359,7 @@ function App() {
         : null,
       acao,
       detalhes,
+      grupoId: grupoId ?? null,
     };
     setLogEntries((prev) => [...prev, novo]);
 
@@ -418,15 +420,6 @@ function App() {
     }
 
     if (
-      !usuarioAtual &&
-      !confirm(
-        "Nenhum usuário está logado. Deseja mesmo limpar o horário deste grupo sem registrar usuário?"
-      )
-    ) {
-      return;
-    }
-
-    if (
       confirm(
         `Deseja limpar o horário do grupo selecionado (${grupoSelecionado})?`
       )
@@ -439,7 +432,8 @@ function App() {
 
       adicionarLog(
         "limpar_grupo",
-        `Horário do grupo ${grupoSelecionado} foi limpo.`
+        `Horário do grupo ${grupoSelecionado} foi limpo.`,
+        grupoSelecionado
       );
     }
   }
@@ -662,10 +656,7 @@ function App() {
       return copia;
     });
 
-    adicionarLog(
-      "salvar_aula",
-      `Aula salva: turma=${turmaCadastro.trim()}, prof=${profCadastro.trim()}, disc=${discCadastro.trim()}, dia=${diaCadastro}, aula=${numAulaCadastro}, grupo=${grupoSelecionado}.`
-    );
+    adicionarLog("salvar_aula", `Aula salva: turma=${turmaCadastro.trim()}, prof=${profCadastro.trim()}, disc=${discCadastro.trim()}, dia=${diaCadastro}, aula=${numAulaCadastro}, grupo=${grupoSelecionado}.`, grupoSelecionado);
   }
 
   function handleLimparCadastroCampo() {
@@ -695,7 +686,8 @@ function App() {
 
     adicionarLog(
       "limpar_aula",
-      `Horário limpo: dia=${diaCadastro}, aula=${numAulaCadastro}, grupo=${grupoSelecionado}.`
+      `Horário limpo: dia=${diaCadastro}, aula=${numAulaCadastro}, grupo=${grupoSelecionado}.`,
+      grupoSelecionado
     );
   }
 
@@ -833,6 +825,13 @@ function App() {
   // Estados para exportação específica
   const [professorExport, setProfessorExport] = useState<string>("");
   const [turmaExport, setTurmaExport] = useState<string>("");
+
+  // Estados de filtro de log
+  const [filtroUsuario, setFiltroUsuario] = useState<string>("");
+  const [filtroAcao, setFiltroAcao] = useState<string>("");
+  const [filtroGrupoId, setFiltroGrupoId] = useState<string>("");
+  const [filtroDataInicio, setFiltroDataInicio] = useState<string>("");
+  const [filtroDataFim, setFiltroDataFim] = useState<string>("");
 
   // ---------- Exportações por professor / turma ----------
 
@@ -993,6 +992,84 @@ function App() {
 
     html += "</tbody></table>";
     abrirJanelaImpressao(html, `Horario-turma-${turma}`);
+  }
+
+  // ---------- Filtros e export do log ----------
+
+  const usuariosLog = Array.from(
+    new Set(logEntries.map((l) => l.usuario || "—"))
+  ).sort();
+  const acoesLog = Array.from(new Set(logEntries.map((l) => l.acao))).sort();
+
+  const logsFiltrados = logEntries.filter((log) => {
+    if (filtroUsuario && (log.usuario || "—") !== filtroUsuario) return false;
+    if (filtroAcao && log.acao !== filtroAcao) return false;
+    if (filtroGrupoId) {
+      if (!log.grupoId || log.grupoId !== (filtroGrupoId as GrupoId)) {
+        return false;
+      }
+    }
+    if (filtroDataInicio) {
+      const dataLog = new Date(log.timestamp).toISOString().slice(0, 10);
+      if (dataLog < filtroDataInicio) return false;
+    }
+    if (filtroDataFim) {
+      const dataLog = new Date(log.timestamp).toISOString().slice(0, 10);
+      if (dataLog > filtroDataFim) return false;
+    }
+    return true;
+  });
+
+  function exportarLogCSV() {
+    if (logsFiltrados.length === 0) {
+      alert("Não há registros no log com os filtros atuais.");
+      return;
+    }
+    const linhas: string[] = [];
+    linhas.push("Data/Hora,Usuário,Ação,Grupo,Detalhes");
+
+    logsFiltrados.forEach((log) => {
+      const grupoLabel = log.grupoId
+        ? grupos.find((g) => g.id === log.grupoId)?.nome ?? log.grupoId
+        : "";
+      linhas.push(
+        `"${new Date(log.timestamp).toLocaleString("pt-BR")}","${
+          (log.usuario || "—").replace(/"/g, '""')
+        }","${log.acao.replace(/"/g, '""')}","${grupoLabel.replace(
+          /"/g,
+          '""'
+        )}","${log.detalhes.replace(/"/g, '""')}"`
+      );
+    });
+
+    gerarCSV(linhas.join("\n"), "log-horario-escolar.csv");
+  }
+
+  function exportarLogPDF() {
+    if (logsFiltrados.length === 0) {
+      alert("Não há registros no log com os filtros atuais.");
+      return;
+    }
+
+    let html = `<h1>Log de alterações do horário</h1>`;
+    html += `<h2>Total de registros: ${logsFiltrados.length}</h2>`;
+    html += `<table><thead><tr><th>Data/Hora</th><th>Usuário</th><th>Ação</th><th>Grupo</th><th>Detalhes</th></tr></thead><tbody>`;
+
+    logsFiltrados.forEach((log) => {
+      const grupoLabel = log.grupoId
+        ? grupos.find((g) => g.id === log.grupoId)?.nome ?? log.grupoId
+        : "";
+      html += `<tr>
+        <td>${new Date(log.timestamp).toLocaleString("pt-BR")}</td>
+        <td>${log.usuario ?? "—"}</td>
+        <td>${log.acao}</td>
+        <td>${grupoLabel}</td>
+        <td>${log.detalhes}</td>
+      </tr>`;
+    });
+
+    html += "</tbody></table>";
+    abrirJanelaImpressao(html, "log-horario-escolar");
   }
 
   // ---------- Render ----------
@@ -1551,6 +1628,87 @@ function App() {
                 <h2 style={{ fontSize: "1rem", marginBottom: "0.5rem" }}>
                   Últimas ações registradas
                 </h2>
+
+                {/* Filtros do log */}
+                <div
+                  style={{
+                    display: "flex",
+                    flexWrap: "wrap",
+                    gap: "0.5rem",
+                    fontSize: "0.8rem",
+                    marginBottom: "0.5rem",
+                    alignItems: "center",
+                  }}
+                >
+                  <span style={{ fontWeight: 500 }}>Filtros:</span>
+                  <select
+                    className="app-select"
+                    value={filtroUsuario}
+                    onChange={(e) => setFiltroUsuario(e.target.value)}
+                  >
+                    <option value="">Usuário (todos)</option>
+                    {usuariosLog.map((u) => (
+                      <option key={u} value={u}>
+                        {u}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    className="app-select"
+                    value={filtroAcao}
+                    onChange={(e) => setFiltroAcao(e.target.value)}
+                  >
+                    <option value="">Ação (todas)</option>
+                    {acoesLog.map((a) => (
+                      <option key={a} value={a}>
+                        {a}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    className="app-select"
+                    value={filtroGrupoId}
+                    onChange={(e) => setFiltroGrupoId(e.target.value)}
+                  >
+                    <option value="">Grupo/Período (todos)</option>
+                    {grupos.map((g) => (
+                      <option key={g.id} value={g.id}>
+                        {g.nome}
+                      </option>
+                    ))}
+                  </select>
+                  <label>
+                    De:{" "}
+                    <input
+                      type="date"
+                      value={filtroDataInicio}
+                      onChange={(e) => setFiltroDataInicio(e.target.value)}
+                    />
+                  </label>
+                  <label>
+                    Até:{" "}
+                    <input
+                      type="date"
+                      value={filtroDataFim}
+                      onChange={(e) => setFiltroDataFim(e.target.value)}
+                    />
+                  </label>
+                  <button
+                    className="button-primary"
+                    style={{ marginLeft: "0.25rem" }}
+                    onClick={exportarLogPDF}
+                  >
+                    🖨️ PDF
+                  </button>
+                  <button
+                    className="button-primary"
+                    style={{ marginLeft: "0.25rem" }}
+                    onClick={exportarLogCSV}
+                  >
+                    📊 CSV/Excel
+                  </button>
+                </div>
+
                 <div className="horario-wrapper">
                   <table className="horario-table log-table">
                     <thead>
@@ -1558,30 +1716,40 @@ function App() {
                         <th>Data/Hora</th>
                         <th>Usuário</th>
                         <th>Ação</th>
+                        <th>Grupo</th>
                         <th>Detalhes</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {logEntries.length === 0 && (
+                      {logsFiltrados.length === 0 && (
                         <tr>
-                          <td colSpan={4} style={{ textAlign: "center" }}>
-                            Nenhum registro no log ainda.
+                          <td colSpan={5} style={{ textAlign: "center" }}>
+                            Nenhum registro no log com os filtros atuais.
                           </td>
                         </tr>
                       )}
-                      {logEntries
-                        .slice(-20) // últimas 20
+                      {logsFiltrados
+                        .slice() // cópia para poder reverter
                         .reverse()
-                        .map((log, idx) => (
-                          <tr key={idx}>
-                            <td>
-                              {new Date(log.timestamp).toLocaleString("pt-BR")}
-                            </td>
-                            <td>{log.usuario ?? "—"}</td>
-                            <td>{log.acao}</td>
-                            <td>{log.detalhes}</td>
-                          </tr>
-                        ))}
+                        .map((log, idx) => {
+                          const grupoLabel = log.grupoId
+                            ? grupos.find((g) => g.id === log.grupoId)?.nome ??
+                              log.grupoId
+                            : "";
+                          return (
+                            <tr key={idx}>
+                              <td>
+                                {new Date(log.timestamp).toLocaleString(
+                                  "pt-BR"
+                                )}
+                              </td>
+                              <td>{log.usuario ?? "—"}</td>
+                              <td>{log.acao}</td>
+                              <td>{grupoLabel}</td>
+                              <td>{log.detalhes}</td>
+                            </tr>
+                          );
+                        })}
                     </tbody>
                   </table>
                 </div>
