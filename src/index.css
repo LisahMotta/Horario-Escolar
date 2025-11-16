@@ -238,6 +238,64 @@ body {
   color: #6b7280;
   padding: 0.5rem 0.75rem 0.75rem;
 }
+
+/* Tema escuro básico */
+body.theme-dark {
+  background: #020617;
+  color: #e5e7eb;
+}
+
+body.theme-dark .app-main {
+  background: transparent;
+}
+
+body.theme-dark .app-content {
+  background: #020617;
+  border-color: #1f2937;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.6);
+}
+
+body.theme-dark .app-toolbar-title,
+body.theme-dark .app-toolbar-text,
+body.theme-dark .app-toolbar-highlight {
+  color: #e5e7eb;
+}
+
+body.theme-dark .app-toolbar-highlight {
+  color: #38bdf8;
+}
+
+body.theme-dark .app-footer {
+  color: #9ca3af;
+}
+
+body.theme-dark .horario-table {
+  background: #020617;
+}
+
+body.theme-dark .horario-table th,
+body.theme-dark .horario-table td {
+  border-color: #1f2937;
+  color: #e5e7eb;
+}
+
+body.theme-dark .horario-table thead th {
+  background: #111827;
+}
+
+body.theme-dark .horario-col-horario {
+  background: #0f172a;
+  color: #e5e7eb;
+}
+
+body.theme-dark .horario-slot-intervalo {
+  background: #451a1a;
+  color: #fecaca;
+}
+
+body.theme-dark .horario-slot-aula {
+  background: #020617;
+}
 /* Abas (tabs) */
 .tab-bar {
   display: flex;

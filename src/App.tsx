@@ -10,6 +10,8 @@ import type { HorarioCompleto, HorariosPorGrupo } from "./types";
 
 const STORAGE_KEY = "horario-escolar-manha-por-grupo";
 const STORAGE_DRAFT_KEY = "horario-escolar-rascunho-por-grupo";
+const THEME_KEY = "horario-escolar-theme";
+const FONT_KEY = "horario-escolar-font-scale";
 const USER_KEY = "horario-escolar-usuario";
 const SNAPSHOT_KEY = "horario-escolar-snapshots";
 
@@ -935,10 +937,61 @@ function App() {
   // Busca rápida no quadro
   const [termoBusca, setTermoBusca] = useState<string>("");
 
+  // Tema e acessibilidade
+  const [temaEscuro, setTemaEscuro] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem(THEME_KEY) === "dark";
+    } catch {
+      return false;
+    }
+  });
+  const [escalaFonte, setEscalaFonte] = useState<number>(() => {
+    try {
+      const v = Number(localStorage.getItem(FONT_KEY));
+      return Number.isFinite(v) ? v : 0;
+    } catch {
+      return 0;
+    }
+  });
+
   function correspondeBusca(texto?: string | null) {
     if (!termoBusca.trim()) return false;
     if (!texto) return false;
     return texto.toLowerCase().includes(termoBusca.trim().toLowerCase());
+  }
+
+  // Aplicar tema e escala de fonte globais
+  useEffect(() => {
+    if (temaEscuro) {
+      document.body.classList.add("theme-dark");
+    } else {
+      document.body.classList.remove("theme-dark");
+    }
+    try {
+      localStorage.setItem(THEME_KEY, temaEscuro ? "dark" : "light");
+    } catch {
+      // ignore
+    }
+  }, [temaEscuro]);
+
+  useEffect(() => {
+    const base = 16; // px
+    const novo = Math.max(12, Math.min(20, base + escalaFonte * 2));
+    document.documentElement.style.fontSize = `${novo}px`;
+    try {
+      localStorage.setItem(FONT_KEY, String(escalaFonte));
+    } catch {
+      // ignore
+    }
+  }, [escalaFonte]);
+
+  function ajustarFonte(delta: number) {
+    setEscalaFonte((prev) => {
+      const novo = prev + delta;
+      if (novo > 2) return 2;
+      if (novo < -2) return -2;
+      return novo;
+    });
   }
 
   // ---------- Exportações por professor / turma ----------
@@ -1531,6 +1584,38 @@ function App() {
                 onChange={(e) => setTermoBusca(e.target.value)}
                 style={{ marginLeft: "0.75rem", minWidth: "220px" }}
               />
+
+              <div
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "0.25rem",
+                  marginLeft: "0.75rem",
+                  fontSize: "0.75rem",
+                }}
+              >
+                <button
+                  className="button-primary"
+                  style={{ paddingInline: "0.6rem" }}
+                  onClick={() => setTemaEscuro((prev) => !prev)}
+                >
+                  {temaEscuro ? "☀️ Claro" : "🌙 Escuro"}
+                </button>
+                <button
+                  className="button-primary"
+                  style={{ paddingInline: "0.5rem" }}
+                  onClick={() => ajustarFonte(1)}
+                >
+                  A+
+                </button>
+                <button
+                  className="button-primary"
+                  style={{ paddingInline: "0.5rem" }}
+                  onClick={() => ajustarFonte(-1)}
+                >
+                  A-
+                </button>
+              </div>
 
               <label
                 style={{
