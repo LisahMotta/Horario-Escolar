@@ -10,21 +10,17 @@ interface DashboardProps {
 
 export function Dashboard({ horarios }: DashboardProps) {
   const [estatisticasHistorico, setEstatisticasHistorico] = useState<EstatisticasHistorico | null>(null);
-  const [carregando, setCarregando] = useState(false);
 
   const grupos = getGrupos();
   const diasSemana = getDiasSemana();
 
   useEffect(() => {
     async function carregarEstatisticas() {
-      setCarregando(true);
       try {
         const stats = await buscarEstatisticasHistorico();
         setEstatisticasHistorico(stats);
       } catch (error) {
         console.error("Erro ao carregar estatísticas:", error);
-      } finally {
-        setCarregando(false);
       }
     }
     carregarEstatisticas();

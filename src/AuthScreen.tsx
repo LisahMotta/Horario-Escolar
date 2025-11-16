@@ -1,16 +1,8 @@
 import { useState } from "react";
 import type { Perfil } from "./App";
+import { PIN_DIRECAO, PIN_VICE_DIRECAO } from "./App";
 import logo from "./assets/logo.svg";
 import { cadastrarUsuario as apiCadastrarUsuario, fazerLogin as apiFazerLogin } from "./api";
-
-const PERFIS_LABEL: Record<Perfil, string> = {
-  direcao: "Direção",
-  vice_direcao: "Vice-direção",
-  coordenacao: "Coordenação",
-  goe: "GOE",
-  aoe: "AOE",
-  professor: "Professor(a)",
-};
 
 interface AuthScreenProps {
   onLogin: (nome: string, perfil: Perfil) => void;

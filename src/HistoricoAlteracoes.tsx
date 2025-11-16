@@ -57,7 +57,6 @@ export function HistoricoAlteracoes({
   // Snapshot
   const [nomeSnapshot, setNomeSnapshot] = useState("");
   const [descricaoSnapshot, setDescricaoSnapshot] = useState("");
-  const [snapshotSelecionado, setSnapshotSelecionado] = useState<number | null>(null);
 
   const grupos = getGrupos();
   const diasSemana = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado", "Domingo"];

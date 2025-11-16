@@ -13,6 +13,7 @@ import { ConfiguracaoEscola } from "./ConfiguracaoEscola";
 import { AuthScreen } from "./AuthScreen";
 import { HistoricoAlteracoes } from "./HistoricoAlteracoes";
 import { Dashboard } from "./Dashboard";
+import { ExportacaoImportacao } from "./ExportacaoImportacao";
 import {
   verificarSessao,
   fazerLogout as apiFazerLogout,
@@ -23,7 +24,6 @@ import {
   criarSnapshot as apiCriarSnapshot,
   buscarSnapshots as apiBuscarSnapshots,
   buscarSnapshot as apiBuscarSnapshot,
-  deletarSnapshot as apiDeletarSnapshot,
 } from "./api";
 
 const STORAGE_KEY = "horario-escolar-manha-por-grupo";
@@ -34,12 +34,12 @@ const USER_KEY = "horario-escolar-usuario";
 const SNAPSHOT_KEY = "horario-escolar-snapshots";
 
 // PINs simples para perfis administrativos (pode ajustar depois, se quiser)
-const PIN_DIRECAO = "1234";
-const PIN_VICE_DIRECAO = "5678";
+export const PIN_DIRECAO = "1234";
+export const PIN_VICE_DIRECAO = "5678";
 
-type AbaId = "dashboard" | "quadro" | "cadastro" | "grades" | "relatorios" | "configuracao" | "historico";
+type AbaId = "dashboard" | "quadro" | "cadastro" | "grades" | "relatorios" | "configuracao" | "historico" | "exportacao";
 
-type Perfil =
+export type Perfil =
   | "direcao"
   | "vice_direcao"
   | "coordenacao"
@@ -135,9 +135,6 @@ async function carregarHorarios(): Promise<HorariosPorGrupo> {
   return inicial;
 }
 
-function salvarHorarios(horarios: HorariosPorGrupo) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(horarios));
-}
 
 function carregarHorariosRascunho(): HorariosPorGrupo {
   const salvo = localStorage.getItem(STORAGE_DRAFT_KEY);
@@ -344,12 +341,6 @@ function App() {
   // Horário oficial
   const [horarios, setHorarios] = useState<HorariosPorGrupo>({});
   
-  // Carrega horários do servidor ao montar
-  useEffect(() => {
-    if (usuarioAtual) {
-      carregarHorarios().then(setHorarios).catch(console.error);
-    }
-  }, [usuarioAtual]);
   // Horário de rascunho (simulador)
   const [horariosRascunho, setHorariosRascunho] = useState<HorariosPorGrupo>(
     () => carregarHorariosRascunho()
@@ -369,6 +360,13 @@ function App() {
   );
 
   const [usuarioAtual, setUsuarioAtual] = useState<UsuarioAtual | null>(null);
+  
+  // Carrega horários do servidor quando usuarioAtual muda
+  useEffect(() => {
+    if (usuarioAtual) {
+      carregarHorarios().then(setHorarios).catch(console.error);
+    }
+  }, [usuarioAtual]);
   
   // Verifica sessão ao montar
   useEffect(() => {
@@ -1581,7 +1579,7 @@ function App() {
           salvarUsuario(usuario);
           adicionarLog(
             "login",
-            `Login efetuado por "${nome}" como ${PERFIS_LABEL[perfil]}.`
+            `Login efetuado por "${nome}" como ${PERFIS_LABEL[perfil as Perfil]}.`
           );
         }}
         onLoginRapido={(nome, perfil) => {
@@ -1590,7 +1588,7 @@ function App() {
           salvarUsuario(usuario);
           adicionarLog(
             "login",
-            `Login rápido efetuado por "${nome}" como ${PERFIS_LABEL[perfil]}.`
+            `Login rápido efetuado por "${nome}" como ${PERFIS_LABEL[perfil as Perfil]}.`
           );
         }}
       />
@@ -1709,6 +1707,15 @@ function App() {
                   onClick={() => setAba("historico")}
                 >
                   📜 Histórico
+                </button>
+                <button
+                  className={
+                    "tab-button " +
+                    (aba === "exportacao" ? "tab-button-active" : "")
+                  }
+                  onClick={() => setAba("exportacao")}
+                >
+                  💾 Exportar/Importar
                 </button>
                 {podeEditar(usuarioAtual) && (
                   <button
@@ -2664,11 +2671,22 @@ function App() {
           {/* ---------- ABA HISTÓRICO DE ALTERAÇÕES ---------- */}
           {aba === "historico" && (
             <HistoricoAlteracoes
-              usuarioId={undefined}
+              usuarioId={null}
               horariosAtuais={horarios}
               onRestaurarSnapshot={(dados) => {
                 setHorarios(dados);
                 alert("Horário restaurado! Recarregue a página para ver as mudanças.");
+              }}
+            />
+          )}
+
+          {/* ---------- ABA EXPORTAÇÃO/IMPORTAÇÃO ---------- */}
+          {aba === "exportacao" && (
+            <ExportacaoImportacao
+              horarios={horarios}
+              usuarioId={null}
+              onHorariosAtualizados={() => {
+                carregarHorarios().then(setHorarios).catch(console.error);
               }}
             />
           )}
