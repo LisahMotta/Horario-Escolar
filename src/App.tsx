@@ -10,6 +10,7 @@ import type { HorarioCompleto, HorariosPorGrupo } from "./types";
 
 const STORAGE_KEY = "horario-escolar-manha-por-grupo";
 const USER_KEY = "horario-escolar-usuario";
+const SNAPSHOT_KEY = "horario-escolar-snapshots";
 
 type AbaId = "quadro" | "cadastro";
 
@@ -36,6 +37,14 @@ interface LogEntry {
 interface UsuarioAtual {
   nome: string;
   perfil: Perfil;
+}
+
+interface SnapshotHorario {
+  id: string;
+  timestamp: string;
+  usuario: string | null;
+  descricao: string;
+  horarios: HorariosPorGrupo;
 }
 
 declare global {
@@ -84,6 +93,20 @@ function carregarHorarios(): HorariosPorGrupo {
 
 function salvarHorarios(horarios: HorariosPorGrupo) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(horarios));
+}
+
+function carregarSnapshots(): SnapshotHorario[] {
+  try {
+    const salvo = localStorage.getItem(SNAPSHOT_KEY);
+    if (!salvo) return [];
+    return JSON.parse(salvo);
+  } catch {
+    return [];
+  }
+}
+
+function salvarSnapshots(lista: SnapshotHorario[]) {
+  localStorage.setItem(SNAPSHOT_KEY, JSON.stringify(lista));
 }
 
 // URL base da API de logs (no Render será a mesma URL do app, em /api/logs)
@@ -265,12 +288,23 @@ function App() {
   const [diaCadastro, setDiaCadastro] = useState(diasSemana[0]);
   const [numAulaCadastro, setNumAulaCadastro] = useState(1);
 
+  const [snapshots, setSnapshots] = useState<SnapshotHorario[]>(() =>
+    carregarSnapshots()
+  );
+  const [snapshotSelecionadoId, setSnapshotSelecionadoId] = useState<
+    string | null
+  >(null);
+
   const horarioAtual: HorarioCompleto =
     horarios[grupoSelecionado] || criarHorarioVazioParaGrupo(grupoSelecionado);
 
   useEffect(() => {
     salvarHorarios(horarios);
   }, [horarios]);
+
+  useEffect(() => {
+    salvarSnapshots(snapshots);
+  }, [snapshots]);
 
   // Sempre mantém uma cópia local como backup
   useEffect(() => {
@@ -542,6 +576,119 @@ function App() {
     URL.revokeObjectURL(url);
   }
 
+  // ---------- Snapshots (versões do horário) ----------
+
+  function handleSalvarSnapshot() {
+    if (!usuarioAtual || !podeEditar(usuarioAtual)) {
+      alert(
+        "Apenas Direção ou Vice-direção podem salvar versões do horário."
+      );
+      return;
+    }
+
+    const descricao = prompt(
+      "Descrição desta versão (ex.: Horário final de março):"
+    );
+    if (descricao === null) return;
+
+    const novo: SnapshotHorario = {
+      id: `${Date.now()}`,
+      timestamp: new Date().toISOString(),
+      usuario: `${usuarioAtual.nome} (${PERFIS_LABEL[usuarioAtual.perfil]})`,
+      descricao: descricao.trim() || "Versão sem descrição",
+      horarios: structuredClone(horarios),
+    };
+
+    setSnapshots((prev) => [...prev, novo]);
+    adicionarLog(
+      "snapshot_criado",
+      `Snapshot salvo: "${novo.descricao}" por ${novo.usuario}.`
+    );
+  }
+
+  function handleRestaurarSnapshot() {
+    if (!usuarioAtual || !podeEditar(usuarioAtual)) {
+      alert(
+        "Apenas Direção ou Vice-direção podem restaurar versões do horário."
+      );
+      return;
+    }
+    if (!snapshotSelecionadoId) {
+      alert("Selecione uma versão do horário para restaurar.");
+      return;
+    }
+
+    const snap = snapshots.find((s) => s.id === snapshotSelecionadoId);
+    if (!snap) {
+      alert("Versão não encontrada.");
+      return;
+    }
+
+    if (
+      !confirm(
+        `Tem certeza que deseja restaurar a versão "${snap.descricao}"? Isso substituirá o horário atual de todos os grupos.`
+      )
+    ) {
+      return;
+    }
+
+    setHorarios(structuredClone(snap.horarios));
+    adicionarLog(
+      "snapshot_restaurado",
+      `Snapshot restaurado: "${snap.descricao}" (salvo em ${new Date(
+        snap.timestamp
+      ).toLocaleString("pt-BR")}).`
+    );
+  }
+
+  function obterDiferencasComSnapshotSelecionado() {
+    if (!snapshotSelecionadoId) return [];
+    const snap = snapshots.find((s) => s.id === snapshotSelecionadoId);
+    if (!snap) return [];
+
+    const diffs: {
+      dia: string;
+      aula: number;
+      campo: "turma" | "disciplina" | "professor";
+      de: string;
+      para: string;
+    }[] = [];
+
+    const horarioSnap = snap.horarios[grupoSelecionado] || {};
+    const horarioAtualGrupo = horarioAtual;
+
+    diasSemana.forEach((dia) => {
+      const slotsDiaSnap = horarioSnap[dia] || {};
+      const slotsDiaAtual = horarioAtualGrupo[dia] || {};
+
+      let numAula = 0;
+      slots.forEach((slot) => {
+        if (slot.tipo !== "aula") return;
+        numAula++;
+        const aSnap = slotsDiaSnap[slot.id] || null;
+        const aAtual = slotsDiaAtual[slot.id] || null;
+
+        (["turma", "disciplina", "professor"] as const).forEach((campo) => {
+          const vSnap = aSnap?.[campo] || "";
+          const vAtual = aAtual?.[campo] || "";
+          if (vSnap !== vAtual) {
+            diffs.push({
+              dia,
+              aula: numAula,
+              campo,
+              de: vSnap,
+              para: vAtual,
+            });
+          }
+        });
+      });
+    });
+
+    return diffs;
+  }
+
+  const diferencasSnapshot = obterDiferencasComSnapshotSelecionado();
+
   // ---------- Render ----------
 
   return (
@@ -660,6 +807,40 @@ function App() {
                   </option>
                 ))}
               </select>
+
+              {/* Controle de versões do horário (snapshots) */}
+              <select
+                className="app-select"
+                style={{ marginLeft: "0.5rem" }}
+                value={snapshotSelecionadoId ?? ""}
+                onChange={(e) =>
+                  setSnapshotSelecionadoId(e.target.value || null)
+                }
+              >
+                <option value="">
+                  Versões salvas ({snapshots.length})
+                </option>
+                {snapshots.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {new Date(s.timestamp).toLocaleString("pt-BR")} –{" "}
+                    {s.descricao}
+                  </option>
+                ))}
+              </select>
+              <button
+                className="button-primary"
+                style={{ marginLeft: "0.25rem" }}
+                onClick={handleSalvarSnapshot}
+              >
+                💾 Salvar versão
+              </button>
+              <button
+                className="button-danger"
+                style={{ marginLeft: "0.25rem", paddingInline: "0.7rem" }}
+                onClick={handleRestaurarSnapshot}
+              >
+                ⏪ Restaurar
+              </button>
             </div>
           </div>
 
@@ -870,6 +1051,47 @@ function App() {
                   </table>
                 </div>
               </section>
+
+              {/* Diferenças entre horário atual e versão selecionada */}
+              {snapshotSelecionadoId && (
+                <section style={{ marginTop: "1.5rem" }}>
+                  <h2 style={{ fontSize: "1rem", marginBottom: "0.5rem" }}>
+                    Comparação – horário atual x versão selecionada (grupo{" "}
+                    {infoGrupo.nome})
+                  </h2>
+                  {diferencasSnapshot.length === 0 ? (
+                    <p style={{ fontSize: "0.8rem", color: "#4b5563" }}>
+                      Nenhuma diferença encontrada entre o horário atual e a
+                      versão selecionada para este grupo.
+                    </p>
+                  ) : (
+                    <div className="horario-wrapper">
+                      <table className="horario-table log-table">
+                        <thead>
+                          <tr>
+                            <th>Dia</th>
+                            <th>Aula</th>
+                            <th>Campo</th>
+                            <th>Versão selecionada</th>
+                            <th>Horário atual</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {diferencasSnapshot.map((d, idx) => (
+                            <tr key={idx}>
+                              <td>{d.dia}</td>
+                              <td>{d.aula}ª</td>
+                              <td>{d.campo}</td>
+                              <td>{d.de || "—"}</td>
+                              <td>{d.para || "—"}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </section>
+              )}
 
               {/* Log (resumo) */}
               <section style={{ marginTop: "1.5rem" }}>
