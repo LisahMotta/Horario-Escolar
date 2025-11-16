@@ -12,6 +12,10 @@ const STORAGE_KEY = "horario-escolar-manha-por-grupo";
 const USER_KEY = "horario-escolar-usuario";
 const SNAPSHOT_KEY = "horario-escolar-snapshots";
 
+// PINs simples para perfis administrativos (pode ajustar depois, se quiser)
+const PIN_DIRECAO = "1234";
+const PIN_VICE_DIRECAO = "5678";
+
 type AbaId = "quadro" | "cadastro";
 
 type Perfil =
@@ -277,6 +281,7 @@ function App() {
   );
   const [nomeLogin, setNomeLogin] = useState("");
   const [perfilLogin, setPerfilLogin] = useState<Perfil>("professor");
+  const [pinLogin, setPinLogin] = useState("");
   const [deferredPrompt, setDeferredPrompt] =
     useState<BeforeInstallPromptEvent | null>(null);
   const [pwaDisponivel, setPwaDisponivel] = useState(false);
@@ -578,6 +583,20 @@ function App() {
       return;
     }
     const nome = nomeLogin.trim();
+
+    // Validação de PIN para perfis administrativos
+    if (perfilLogin === "direcao" || perfilLogin === "vice_direcao") {
+      if (!pinLogin.trim()) {
+        alert("Digite o PIN para acessar com este perfil.");
+        return;
+      }
+      const pinCorreto =
+        perfilLogin === "direcao" ? PIN_DIRECAO : PIN_VICE_DIRECAO;
+      if (pinLogin.trim() !== pinCorreto) {
+        alert("PIN incorreto para este perfil.");
+        return;
+      }
+    }
     const usuario: UsuarioAtual = {
       nome,
       perfil: perfilLogin,
@@ -585,6 +604,7 @@ function App() {
     setUsuarioAtual(usuario);
     salvarUsuario(usuario);
     setNomeLogin("");
+    setPinLogin("");
     adicionarLog(
       "login",
       `Login efetuado por "${nome}" como ${PERFIS_LABEL[perfilLogin]}.`
@@ -1024,6 +1044,16 @@ function App() {
                 <option value="coordenacao">Coordenação</option>
                 <option value="professor">Professor(a)</option>
               </select>
+              {(perfilLogin === "direcao" || perfilLogin === "vice_direcao") && (
+                <input
+                  className="login-input"
+                  type="password"
+                  placeholder="PIN"
+                  value={pinLogin}
+                  onChange={(e) => setPinLogin(e.target.value)}
+                  style={{ width: "80px" }}
+                />
+              )}
               <button className="button-primary" onClick={handleLogin}>
                 Entrar
               </button>
