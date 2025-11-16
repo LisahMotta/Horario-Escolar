@@ -23,12 +23,16 @@ type Perfil =
   | "direcao"
   | "vice_direcao"
   | "coordenacao"
+  | "goe"
+  | "aoe"
   | "professor";
 
 const PERFIS_LABEL: Record<Perfil, string> = {
   direcao: "Direção",
   vice_direcao: "Vice-direção",
   coordenacao: "Coordenação",
+  goe: "GOE",
+  aoe: "AOE",
   professor: "Professor(a)",
 };
 
@@ -1213,6 +1217,38 @@ function App() {
     abrirJanelaCartaoImpressao(html, `Cartao-turma-${turma}`);
   }
 
+  function handleSinalizarConflitoProfessor(conflito: {
+    dia: string;
+    numAula: number;
+    professor: string;
+    ocorrencias: { grupo: string; turma: string; disciplina: string }[];
+  }) {
+    if (!usuarioAtual || usuarioAtual.perfil !== "goe") {
+      alert("Apenas usuários com perfil GOE podem sinalizar incompatibilidade de horário.");
+      return;
+    }
+
+    const detalhesExtras =
+      prompt(
+        "Descreva rapidamente a incompatibilidade (opcional, pode deixar em branco):"
+      ) || "";
+
+    const resumoOcorrencias = conflito.ocorrencias
+      .map(
+        (o) =>
+          `${o.turma || "turma não informada"} – ${o.disciplina || "disciplina não informada"} (${o.grupo})`
+      )
+      .join(" / ");
+
+    adicionarLog(
+      "goe_incompatibilidade",
+      `GOE sinalizou incompatibilidade: professor=${conflito.professor}, dia=${conflito.dia}, aula=${conflito.numAula}ª, ocorrências=[${resumoOcorrencias}]${
+        detalhesExtras ? `, observação="${detalhesExtras}"` : ""
+      }.`
+    );
+    alert("Incompatibilidade registrada no log pelo GOE.");
+  }
+
   // ---------- Simulador: aplicar rascunho no horário oficial ----------
 
   function handleAlternarSimulador() {
@@ -1377,6 +1413,8 @@ function App() {
                 <option value="direcao">Direção</option>
                 <option value="vice_direcao">Vice-direção</option>
                 <option value="coordenacao">Coordenação</option>
+                 <option value="goe">GOE</option>
+                 <option value="aoe">AOE</option>
                 <option value="professor">Professor(a)</option>
               </select>
               {(perfilLogin === "direcao" || perfilLogin === "vice_direcao") && (
@@ -1974,6 +2012,21 @@ function App() {
                                   `${o.turma || "turma não informada"} (${o.grupo})`
                               )
                               .join(" / ")}
+                            {usuarioAtual?.perfil === "goe" && (
+                              <button
+                                className="button-primary"
+                                style={{
+                                  marginLeft: "0.35rem",
+                                  paddingInline: "0.5rem",
+                                  fontSize: "0.7rem",
+                                }}
+                                onClick={() =>
+                                  handleSinalizarConflitoProfessor(c)
+                                }
+                              >
+                                ⚠️ Sinalizar incompatibilidade
+                              </button>
+                            )}
                           </li>
                         ))}
                       </ul>
