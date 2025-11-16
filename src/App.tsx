@@ -494,7 +494,7 @@ function App() {
             Secretaria da Educação do Estado de São Paulo
           </div>
           <div className="app-header-subtitle">
-            Sistema de Organização de Horário – Período da Manhã
+            Sistema de Organização de Horário – Manhã, Tarde e Noite
           </div>
           <div className="app-header-badge">
             <span className="app-header-badge-dot" />
@@ -535,12 +535,9 @@ function App() {
           {/* Barra superior */}
           <div className="app-toolbar">
             <div className="app-toolbar-left">
-              <div className="app-toolbar-title">
-                Horário de Aulas – Manhã (07h00 às 12h20)
-              </div>
+              <div className="app-toolbar-title">Horário de Aulas</div>
               <div className="app-toolbar-text">
-                6 aulas de 50 minutos e 1 intervalo de 20 minutos por grupo de
-                turmas. <br />
+                Organização de horários por grupo de turmas e período. <br />
                 <span className="app-toolbar-highlight">
                   Grupo atual: {infoGrupo.nome} – {infoGrupo.descricao}
                 </span>

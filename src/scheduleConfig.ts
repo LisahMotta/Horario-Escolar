@@ -3,32 +3,50 @@ export type TipoSlot = "aula" | "intervalo";
 
 export interface TimeSlot {
   id: number;
-  label: string;   // ex: "07:00 - 07:50 (Aula 1)"
+  label: string; // ex: "07:00 - 07:50 (Aula 1)"
   tipo: TipoSlot;
 }
 
-export type GrupoId = "fund2" | "medio";
+export type GrupoId = "fund2" | "medio" | "tarde_456" | "tarde_123" | "noite";
 
 export interface GrupoInfo {
   id: GrupoId;
   nome: string;
-  descricao: string;
+  descricao: string; // aparece na tela como resumo do período / intervalo
 }
 
 export const grupos: GrupoInfo[] = [
   {
     id: "fund2",
-    nome: "6º ao 8º ano",
-    descricao: "Intervalo às 9h30 (após a 3ª aula)",
+    nome: "Manhã – 6º ao 8º ano",
+    descricao: "Manhã (07h00 às 12h20) – intervalo às 9h30 (após a 3ª aula)",
   },
   {
     id: "medio",
-    nome: "9º ano e Ensino Médio",
-    descricao: "Intervalo às 10h20 (após a 4ª aula)",
+    nome: "Manhã – 9º ano e Ensino Médio",
+    descricao: "Manhã (07h00 às 12h20) – intervalo às 10h20 (após a 4ª aula)",
+  },
+  {
+    id: "tarde_456",
+    nome: "Tarde – 4º, 5º e 6º ano",
+    descricao:
+      "Tarde (13h00 às 18h20) – intervalo das 14h40 às 15h00 (4º, 5º e 6º ano)",
+  },
+  {
+    id: "tarde_123",
+    nome: "Tarde – 1º, 2º e 3º ano",
+    descricao:
+      "Tarde (13h00 às 18h20) – intervalo das 15h30 às 15h50 (1º, 2º e 3º ano)",
+  },
+  {
+    id: "noite",
+    nome: "Noite",
+    descricao: "Noite (18h50 às 22h50) – intervalo das 20h20 às 20h35",
   },
 ];
 
 export const slotsPorGrupo: Record<GrupoId, TimeSlot[]> = {
+  // MANHÃ – já existentes
   fund2: [
     { id: 1, label: "07:00 - 07:50 (Aula 1)", tipo: "aula" },
     { id: 2, label: "07:50 - 08:40 (Aula 2)", tipo: "aula" },
@@ -47,12 +65,38 @@ export const slotsPorGrupo: Record<GrupoId, TimeSlot[]> = {
     { id: 6, label: "10:40 - 11:30 (Aula 5)", tipo: "aula" },
     { id: 7, label: "11:30 - 12:20 (Aula 6)", tipo: "aula" },
   ],
+
+  // TARDE – 6 aulas, com intervalos em horários diferentes por grupo
+  // 4º, 5º e 6º ano: intervalo das 14h40 às 15h00
+  tarde_456: [
+    { id: 1, label: "13:00 - 13:50 (Aula 1)", tipo: "aula" },
+    { id: 2, label: "13:50 - 14:40 (Aula 2)", tipo: "aula" },
+    { id: 3, label: "14:40 - 15:00 (Intervalo)", tipo: "intervalo" },
+    { id: 4, label: "15:00 - 15:50 (Aula 3)", tipo: "aula" },
+    { id: 5, label: "15:50 - 16:40 (Aula 4)", tipo: "aula" },
+    { id: 6, label: "16:40 - 17:30 (Aula 5)", tipo: "aula" },
+    { id: 7, label: "17:30 - 18:20 (Aula 6)", tipo: "aula" },
+  ],
+  // 1º, 2º e 3º ano: intervalo das 15h30 às 15h50
+  tarde_123: [
+    { id: 1, label: "13:00 - 13:50 (Aula 1)", tipo: "aula" },
+    { id: 2, label: "13:50 - 14:40 (Aula 2)", tipo: "aula" },
+    { id: 3, label: "14:40 - 15:30 (Aula 3)", tipo: "aula" },
+    { id: 4, label: "15:30 - 15:50 (Intervalo)", tipo: "intervalo" },
+    { id: 5, label: "15:50 - 16:40 (Aula 4)", tipo: "aula" },
+    { id: 6, label: "16:40 - 17:30 (Aula 5)", tipo: "aula" },
+    { id: 7, label: "17:30 - 18:20 (Aula 6)", tipo: "aula" },
+  ],
+
+  // NOITE – 5 aulas com um intervalo
+  noite: [
+    { id: 1, label: "18:50 - 19:40 (Aula 1)", tipo: "aula" },
+    { id: 2, label: "19:40 - 20:20 (Aula 2)", tipo: "aula" },
+    { id: 3, label: "20:20 - 20:35 (Intervalo)", tipo: "intervalo" },
+    { id: 4, label: "20:35 - 21:25 (Aula 3)", tipo: "aula" },
+    { id: 5, label: "21:25 - 22:15 (Aula 4)", tipo: "aula" },
+    { id: 6, label: "22:15 - 22:50 (Aula 5)", tipo: "aula" },
+  ],
 };
 
-export const diasSemana = [
-  "Segunda",
-  "Terça",
-  "Quarta",
-  "Quinta",
-  "Sexta",
-];
+export const diasSemana = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta"];
