@@ -1,5 +1,7 @@
 import express from "express";
 import cors from "cors";
+import path from "path";
+import { fileURLToPath } from "url";
 
 const app = express();
 
@@ -46,11 +48,27 @@ app.post("/api/logs", (req, res) => {
   res.status(201).json({ ok: true });
 });
 
+// ---------- Servir o frontend buildado (Vite) ----------
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const distPath = path.join(__dirname, "..", "dist");
+
+// Arquivos estáticos gerados pelo Vite
+app.use(express.static(distPath));
+
+// Para qualquer rota que não seja /api, devolve o index.html (SPA)
+app.get("*", (req, res) => {
+  if (req.path.startsWith("/api/")) {
+    return res.status(404).json({ error: "API route not found" });
+  }
+
+  res.sendFile(path.join(distPath, "index.html"));
+});
+
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
   // eslint-disable-next-line no-console
-  console.log(`Servidor de logs rodando na porta ${PORT}`);
+  console.log(`Servidor rodando na porta ${PORT}`);
 });
-
-

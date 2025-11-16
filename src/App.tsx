@@ -6,11 +6,7 @@ import {
   type GrupoId,
   type TimeSlot,
 } from "./scheduleConfig";
-import type {
-  HorarioCompleto,
-  HorariosPorGrupo,
-  AulaInfo,
-} from "./types";
+import type { HorarioCompleto, HorariosPorGrupo } from "./types";
 
 const STORAGE_KEY = "horario-escolar-manha-por-grupo";
 const USER_KEY = "horario-escolar-usuario";
@@ -261,33 +257,33 @@ function App() {
     });
   }
 
-  function atualizarAulaDireto(
-    dia: string,
-    slotId: number,
-    campo: keyof AulaInfo,
-    valor: string
-  ) {
-    // usada só se um dia você quiser voltar a edição direta no quadro geral
-    setHorarios((prev) => {
-      const copia: HorariosPorGrupo = structuredClone(prev);
-
-      if (!copia[grupoSelecionado]) {
-        copia[grupoSelecionado] = criarHorarioVazioParaGrupo(grupoSelecionado);
-      }
-
-      const horarioGrupo = copia[grupoSelecionado];
-      const atual = horarioGrupo[dia][slotId] || {
-        disciplina: "",
-        professor: "",
-        turma: "",
-      };
-
-      atual[campo] = valor;
-      horarioGrupo[dia][slotId] = atual;
-
-      return copia;
-    });
-  }
+  // function atualizarAulaDireto(
+  //   dia: string,
+  //   slotId: number,
+  //   campo: keyof AulaInfo,
+  //   valor: string
+  // ) {
+  //   // usada só se um dia você quiser voltar a edição direta no quadro geral
+  //   setHorarios((prev) => {
+  //     const copia: HorariosPorGrupo = structuredClone(prev);
+  //
+  //     if (!copia[grupoSelecionado]) {
+  //       copia[grupoSelecionado] = criarHorarioVazioParaGrupo(grupoSelecionado);
+  //     }
+  //
+  //     const horarioGrupo = copia[grupoSelecionado];
+  //     const atual = horarioGrupo[dia][slotId] || {
+  //       disciplina: "",
+  //       professor: "",
+  //       turma: "",
+  //     };
+  //
+  //     atual[campo] = valor;
+  //     horarioGrupo[dia][slotId] = atual;
+  //
+  //     return copia;
+  //   });
+  // }
 
   function limparHorarioGrupoAtual() {
     if (
