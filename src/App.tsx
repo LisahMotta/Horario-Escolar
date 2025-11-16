@@ -449,6 +449,127 @@ function App() {
   const professoresOrdenados = Object.keys(gradeProf).sort();
   const turmasOrdenadas = Object.keys(gradeTurma).sort();
 
+  // ---------- Análises de conflitos e alertas ----------
+
+  // Conflitos de professor em duas turmas ao mesmo tempo (considera todos os grupos)
+  const conflitosProfessores = (() => {
+    const mapa: Record<
+      string,
+      { grupo: string; turma: string; disciplina: string }[]
+    > = {};
+
+    grupos.forEach((g) => {
+      const slotsGrupo = slotsPorGrupo[g.id];
+      const horarioGrupo = horarios[g.id];
+      if (!horarioGrupo) return;
+
+      diasSemana.forEach((dia) => {
+        let numAula = 0;
+        slotsGrupo.forEach((slot) => {
+          if (slot.tipo !== "aula") return;
+          numAula++;
+
+          const aula = horarioGrupo[dia]?.[slot.id];
+          if (!aula || !aula.professor) return;
+
+          const prof = aula.professor.trim();
+          if (!prof) return;
+
+          const key = `${dia}__${numAula}__${prof}`;
+          if (!mapa[key]) mapa[key] = [];
+          mapa[key].push({
+            grupo: g.nome,
+            turma: aula.turma || "",
+            disciplina: aula.disciplina || "",
+          });
+        });
+      });
+    });
+
+    return Object.entries(mapa)
+      .filter(([, lista]) => lista.length > 1)
+      .map(([chave, lista]) => {
+        const [dia, numAulaStr, professor] = chave.split("__");
+        return {
+          dia,
+          numAula: Number(numAulaStr),
+          professor,
+          ocorrencias: lista,
+        };
+      });
+  })();
+
+  // Buracos e muitas aulas seguidas da mesma disciplina por turma (apenas grupo atual)
+  const alertasTurmas = (() => {
+    const alertas: {
+      turma: string;
+      mensagens: string[];
+    }[] = [];
+
+    const numAulas = slots.filter((s) => s.tipo === "aula").length;
+
+    turmasOrdenadas.forEach((turma) => {
+      const mensagens: string[] = [];
+
+      diasSemana.forEach((dia) => {
+        const aulasDia = gradeTurma[turma]?.[dia] || {};
+        const vetor = Array.from({ length: numAulas }).map((_, i) => {
+          const numAula = i + 1;
+          return aulasDia[numAula] || null;
+        });
+
+        // Buracos: há um espaço vazio entre aulas preenchidas
+        let temBuraco = false;
+        for (let i = 1; i < numAulas - 1; i++) {
+          if (!vetor[i]) {
+            const temAntes = vetor.slice(0, i).some((v) => v);
+            const temDepois = vetor.slice(i + 1).some((v) => v);
+            if (temAntes && temDepois) {
+              temBuraco = true;
+              break;
+            }
+          }
+        }
+        if (temBuraco) {
+          mensagens.push(`Dia ${dia}: há buracos entre aulas.`);
+        }
+
+        // Muitas aulas seguidas da mesma disciplina (3 ou mais)
+        let disciplinaAtual = "";
+        let contador = 0;
+        const disciplinasRepetidas: string[] = [];
+
+        vetor.forEach((info) => {
+          const disc = info?.disciplina?.trim() || "";
+          if (disc && disc === disciplinaAtual) {
+            contador++;
+          } else {
+            if (disciplinaAtual && contador >= 3) {
+              disciplinasRepetidas.push(disciplinaAtual);
+            }
+            disciplinaAtual = disc;
+            contador = disc ? 1 : 0;
+          }
+        });
+        if (disciplinaAtual && contador >= 3) {
+          disciplinasRepetidas.push(disciplinaAtual);
+        }
+
+        disciplinasRepetidas.forEach((disc) => {
+          mensagens.push(
+            `Dia ${dia}: muitas aulas seguidas da disciplina "${disc}".`
+          );
+        });
+      });
+
+      if (mensagens.length > 0) {
+        alertas.push({ turma, mensagens });
+      }
+    });
+
+    return alertas;
+  })();
+
   // ---------- Login / Logout ----------
 
   function handleLogin() {
@@ -1276,6 +1397,81 @@ function App() {
                       )}
                     </tbody>
                   </table>
+                </div>
+              </section>
+
+              {/* Alertas de conflitos e qualidade do horário */}
+              <section style={{ marginTop: "1.5rem" }}>
+                <h2 style={{ fontSize: "1rem", marginBottom: "0.5rem" }}>
+                  Alertas automáticos
+                </h2>
+                <div
+                  style={{
+                    display: "flex",
+                    flexWrap: "wrap",
+                    gap: "1rem",
+                    fontSize: "0.8rem",
+                  }}
+                >
+                  <div style={{ flex: "1 1 260px" }}>
+                    <h3
+                      style={{
+                        margin: 0,
+                        marginBottom: "0.25rem",
+                        fontSize: "0.85rem",
+                        color: "#b91c1c",
+                      }}
+                    >
+                      Professores em duas turmas ao mesmo tempo
+                    </h3>
+                    {conflitosProfessores.length === 0 ? (
+                      <p style={{ margin: 0, color: "#059669" }}>
+                        Nenhum conflito de professor encontrado entre grupos.
+                      </p>
+                    ) : (
+                      <ul style={{ margin: 0, paddingLeft: "1.1rem" }}>
+                        {conflitosProfessores.map((c, idx) => (
+                          <li key={idx}>
+                            {c.professor} – {c.dia}, {c.numAula}ª aula:{" "}
+                            {c.ocorrencias
+                              .map(
+                                (o) =>
+                                  `${o.turma || "turma não informada"} (${o.grupo})`
+                              )
+                              .join(" / ")}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+
+                  <div style={{ flex: "1 1 260px" }}>
+                    <h3
+                      style={{
+                        margin: 0,
+                        marginBottom: "0.25rem",
+                        fontSize: "0.85rem",
+                        color: "#b45309",
+                      }}
+                    >
+                      Buracos e excesso de aulas seguidas por turma (grupo atual)
+                    </h3>
+                    {alertasTurmas.length === 0 ? (
+                      <p style={{ margin: 0, color: "#059669" }}>
+                        Nenhum buraco ou sequência excessiva encontrado neste
+                        grupo.
+                      </p>
+                    ) : (
+                      <ul style={{ margin: 0, paddingLeft: "1.1rem" }}>
+                        {alertasTurmas.map((a, idx) => (
+                          <li key={idx}>
+                            <strong>{a.turma}:</strong>{" "}
+                            {a.mensagens.join(" ")}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
                 </div>
               </section>
 
