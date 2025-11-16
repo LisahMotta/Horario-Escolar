@@ -19,7 +19,7 @@ const SNAPSHOT_KEY = "horario-escolar-snapshots";
 const PIN_DIRECAO = "1234";
 const PIN_VICE_DIRECAO = "5678";
 
-type AbaId = "quadro" | "cadastro" | "relatorios";
+type AbaId = "quadro" | "cadastro" | "grades" | "relatorios";
 
 type Perfil =
   | "direcao"
@@ -1550,6 +1550,14 @@ function App() {
                 </button>
                 <button
                   className={
+                    "tab-button " + (aba === "grades" ? "tab-button-active" : "")
+                  }
+                  onClick={() => setAba("grades")}
+                >
+                  Grades por professor / turma
+                </button>
+                <button
+                  className={
                     "tab-button " +
                     (aba === "relatorios" ? "tab-button-active" : "")
                   }
@@ -1870,116 +1878,6 @@ function App() {
                   📊 CSV/Excel
                 </button>
               </div>
-
-              {/* Grade por Professor (sem intervalos) */}
-              <section style={{ marginTop: "1.5rem" }}>
-                <h2 style={{ fontSize: "1rem", marginBottom: "0.5rem" }}>
-                  Grade horária por professor (sem intervalos)
-                </h2>
-                <div className="horario-wrapper">
-                  <table className="horario-table">
-                    <thead>
-                      <tr>
-                        <th>Professor(a)</th>
-                        <th>Dia</th>
-                        <th>1ª</th>
-                        <th>2ª</th>
-                        <th>3ª</th>
-                        <th>4ª</th>
-                        <th>5ª</th>
-                        <th>6ª</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {professoresOrdenados.length === 0 && (
-                        <tr>
-                          <td colSpan={8} style={{ textAlign: "center" }}>
-                            Nenhum professor cadastrado ainda.
-                          </td>
-                        </tr>
-                      )}
-
-                      {professoresOrdenados.map((prof) =>
-                        diasSemana.map((dia) => {
-                          const aulasDia = gradeProf[prof][dia] || {};
-                          return (
-                            <tr key={prof + dia}>
-                              <td>{prof}</td>
-                              <td>{dia}</td>
-                              {Array.from({ length: 6 }).map((_, i) => {
-                                const numAula = i + 1;
-                                const info = aulasDia[numAula];
-                                const texto = info
-                                  ? `${info.disciplina}${
-                                      info.turma ? ` (${info.turma})` : ""
-                                    }`
-                                  : "";
-                                return <td key={numAula}>{texto}</td>;
-                              })}
-                            </tr>
-                          );
-                        })
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </section>
-
-              {/* Grade por Turma (sem intervalos) */}
-              <section style={{ marginTop: "1.5rem" }}>
-                <h2 style={{ fontSize: "1rem", marginBottom: "0.5rem" }}>
-                  Grade horária por turma (sem intervalos)
-                </h2>
-                <div className="horario-wrapper">
-                  <table className="horario-table">
-                    <thead>
-                      <tr>
-                        <th>Turma</th>
-                        <th>Dia</th>
-                        <th>1ª</th>
-                        <th>2ª</th>
-                        <th>3ª</th>
-                        <th>4ª</th>
-                        <th>5ª</th>
-                        <th>6ª</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {turmasOrdenadas.length === 0 && (
-                        <tr>
-                          <td colSpan={8} style={{ textAlign: "center" }}>
-                            Nenhuma turma cadastrada ainda.
-                          </td>
-                        </tr>
-                      )}
-
-                      {turmasOrdenadas.map((turma) =>
-                        diasSemana.map((dia) => {
-                          const aulasDia = gradeTurma[turma][dia] || {};
-                          return (
-                            <tr key={turma + dia}>
-                              <td>{turma}</td>
-                              <td>{dia}</td>
-                              {Array.from({ length: 6 }).map((_, i) => {
-                                const numAula = i + 1;
-                                const info = aulasDia[numAula];
-                                const texto = info
-                                  ? `${info.disciplina}${
-                                      info.professor
-                                        ? ` (${info.professor})`
-                                        : ""
-                                    }`
-                                  : "";
-                                return <td key={numAula}>{texto}</td>;
-                              })}
-                            </tr>
-                          );
-                        })
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </section>
 
               {/* Alertas de conflitos e qualidade do horário */}
               <section style={{ marginTop: "1.5rem" }}>
@@ -2343,6 +2241,129 @@ function App() {
                 ir mudando apenas o número da aula para montar o dia inteiro.
                 Depois é só conferir tudo na aba <strong>Quadro geral</strong>.
               </p>
+            </section>
+          )}
+
+          {/* ---------- ABA GRADES POR PROFESSOR / TURMA ---------- */}
+          {aba === "grades" && (
+            <section className="cadastro-container">
+              <h2 style={{ fontSize: "1rem" }}>
+                Grades por professor e por turma – {infoGrupo.nome}
+              </h2>
+              <p style={{ fontSize: "0.85rem", color: "#4b5563" }}>
+                Visão resumida das aulas por professor(a) e por turma, sem
+                intervalos, apenas para o grupo selecionado.
+              </p>
+
+              {/* Grade por Professor (sem intervalos) */}
+              <section style={{ marginTop: "1rem" }}>
+                <h3 style={{ fontSize: "0.95rem", marginBottom: "0.5rem" }}>
+                  Grade horária por professor (sem intervalos)
+                </h3>
+                <div className="horario-wrapper">
+                  <table className="horario-table">
+                    <thead>
+                      <tr>
+                        <th>Professor(a)</th>
+                        <th>Dia</th>
+                        <th>1ª</th>
+                        <th>2ª</th>
+                        <th>3ª</th>
+                        <th>4ª</th>
+                        <th>5ª</th>
+                        <th>6ª</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {professoresOrdenados.length === 0 && (
+                        <tr>
+                          <td colSpan={8} style={{ textAlign: "center" }}>
+                            Nenhum professor cadastrado ainda.
+                          </td>
+                        </tr>
+                      )}
+
+                      {professoresOrdenados.map((prof) =>
+                        diasSemana.map((dia) => {
+                          const aulasDia = gradeProf[prof][dia] || {};
+                          return (
+                            <tr key={prof + dia}>
+                              <td>{prof}</td>
+                              <td>{dia}</td>
+                              {Array.from({ length: 6 }).map((_, i) => {
+                                const numAula = i + 1;
+                                const info = aulasDia[numAula];
+                                const texto = info
+                                  ? `${info.disciplina}${
+                                      info.turma ? ` (${info.turma})` : ""
+                                    }`
+                                  : "";
+                                return <td key={numAula}>{texto}</td>;
+                              })}
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+
+              {/* Grade por Turma (sem intervalos) */}
+              <section style={{ marginTop: "1.5rem" }}>
+                <h3 style={{ fontSize: "0.95rem", marginBottom: "0.5rem" }}>
+                  Grade horária por turma (sem intervalos)
+                </h3>
+                <div className="horario-wrapper">
+                  <table className="horario-table">
+                    <thead>
+                      <tr>
+                        <th>Turma</th>
+                        <th>Dia</th>
+                        <th>1ª</th>
+                        <th>2ª</th>
+                        <th>3ª</th>
+                        <th>4ª</th>
+                        <th>5ª</th>
+                        <th>6ª</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {turmasOrdenadas.length === 0 && (
+                        <tr>
+                          <td colSpan={8} style={{ textAlign: "center" }}>
+                            Nenhuma turma cadastrada ainda.
+                          </td>
+                        </tr>
+                      )}
+
+                      {turmasOrdenadas.map((turma) =>
+                        diasSemana.map((dia) => {
+                          const aulasDia = gradeTurma[turma][dia] || {};
+                          return (
+                            <tr key={turma + dia}>
+                              <td>{turma}</td>
+                              <td>{dia}</td>
+                              {Array.from({ length: 6 }).map((_, i) => {
+                                const numAula = i + 1;
+                                const info = aulasDia[numAula];
+                                const texto = info
+                                  ? `${info.disciplina}${
+                                      info.professor
+                                        ? ` (${info.professor})`
+                                        : ""
+                                    }`
+                                  : "";
+                                return <td key={numAula}>{texto}</td>;
+                              })}
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
             </section>
           )}
 
