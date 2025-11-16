@@ -679,7 +679,7 @@ function App() {
                   onClick={() => window.print()}
                 >
                   <span className="button-danger-icon">🖨️</span>
-                  Imprimir página
+                  Gerar PDF do quadro
                 </button>
 
                 <button

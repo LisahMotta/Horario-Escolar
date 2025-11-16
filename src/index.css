@@ -373,3 +373,57 @@ body {
 .log-table th {
   font-size: 0.8rem;
 }
+
+/* -------- Estilo especial para impressão (gerar PDF bonito) -------- */
+@media print {
+  body {
+    margin: 0;
+    background: #ffffff;
+  }
+
+  .app-header,
+  .app-footer,
+  .login-bar,
+  .app-actions,
+  .cadastro-container,
+  .tab-bar,
+  .log-table,
+  section:nth-of-type(2),
+  section:nth-of-type(3) {
+    display: none !important;
+  }
+
+  .app-main {
+    padding: 0;
+  }
+
+  .app-content {
+    box-shadow: none;
+    border: none;
+    padding: 0.5rem;
+  }
+
+  .horario-wrapper {
+    border: none;
+  }
+
+  /* Cores alternadas para linhas de aula */
+  .horario-table tbody tr:nth-child(odd) .horario-slot-aula {
+    background: #e0f2fe !important; /* azul claro */
+  }
+
+  .horario-table tbody tr:nth-child(even) .horario-slot-aula {
+    background: #fef9c3 !important; /* amarelo claro */
+  }
+
+  /* Intervalos em destaque */
+  .horario-slot-intervalo {
+    background: #fee2e2 !important; /* vermelho bem claro */
+    color: #b91c1c !important;
+  }
+
+  .horario-col-horario {
+    background: #e5e7eb !important;
+    color: #111827 !important;
+  }
+}
