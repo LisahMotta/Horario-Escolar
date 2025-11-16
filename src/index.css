@@ -1,0 +1,375 @@
+:root {
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+
+  color: #111827;
+  background-color: #f3f4f6;
+
+  color-scheme: light;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: #e5e7eb;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+/* Layout principal */
+.app-container {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Cabeçalho estilo SEDUC */
+.app-header {
+  background: linear-gradient(90deg, #002855, #003b73);
+  color: #fff;
+  padding: 0.75rem 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+}
+
+.app-header-left {
+  display: flex;
+  flex-direction: column;
+}
+
+.app-header-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.app-header-subtitle {
+  font-size: 0.85rem;
+  opacity: 0.9;
+}
+
+.app-header-badge {
+  font-size: 0.75rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  margin-top: 0.25rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.app-header-badge-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: #22c55e;
+}
+
+/* Conteúdo principal */
+.app-main {
+  flex: 1;
+  padding: 1rem;
+  display: flex;
+  justify-content: center;
+}
+
+.app-content {
+  width: 100%;
+  max-width: 1200px;
+  background: #ffffff;
+  border-radius: 0.75rem;
+  padding: 1rem 1.25rem 1.5rem;
+  box-shadow: 0 10px 25px rgba(15, 23, 42, 0.08);
+  border: 1px solid #e5e7eb;
+}
+
+/* Barra de informações / filtros */
+.app-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+  margin-bottom: 1rem;
+  justify-content: space-between;
+}
+
+.app-toolbar-left {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.app-toolbar-title {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: #111827;
+}
+
+.app-toolbar-text {
+  font-size: 0.85rem;
+  color: #4b5563;
+}
+
+.app-toolbar-highlight {
+  font-weight: 600;
+  color: #1d4ed8;
+}
+
+/* Seletor de grupo */
+.app-toolbar-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.app-select {
+  padding: 0.35rem 0.5rem;
+  border-radius: 0.5rem;
+  border: 1px solid #cbd5f5;
+  font-size: 0.9rem;
+}
+
+/* Tabela de horário */
+.horario-wrapper {
+  overflow-x: auto;
+  border-radius: 0.75rem;
+  border: 1px solid #e5e7eb;
+}
+
+.horario-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 700px;
+  background: #ffffff;
+}
+
+.horario-table th,
+.horario-table td {
+  border: 1px solid #e5e7eb;
+  padding: 0.4rem 0.5rem;
+  font-size: 0.85rem;
+}
+
+.horario-table thead th {
+  background: #f3f4f6;
+  font-weight: 600;
+  text-align: center;
+  color: #111827;
+}
+
+.horario-col-horario {
+  width: 170px;
+  font-weight: 600;
+  background: #eff6ff;
+  color: #1e3a8a;
+}
+
+.horario-slot-intervalo {
+  background: #fef2f2;
+  color: #b91c1c;
+  font-weight: 600;
+  text-align: center;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+}
+
+.horario-slot-aula {
+  background: #f9fafb;
+}
+
+/* Inputs */
+.horario-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.25rem 0.35rem;
+  font-size: 0.8rem;
+  border-radius: 0.35rem;
+  border: 1px solid #d1d5db;
+  margin-bottom: 0.25rem;
+}
+
+.horario-input:focus {
+  outline: 2px solid #2563eb;
+  outline-offset: 1px;
+  border-color: transparent;
+}
+
+/* Botão */
+.app-actions {
+  margin-top: 1rem;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.button-danger {
+  background: #b91c1c;
+  color: #ffffff;
+  border: none;
+  padding: 0.45rem 0.9rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.button-danger:hover {
+  background: #991b1b;
+}
+
+.button-danger-icon {
+  font-size: 0.9rem;
+}
+
+/* Rodapé simples */
+.app-footer {
+  text-align: center;
+  font-size: 0.75rem;
+  color: #6b7280;
+  padding: 0.5rem 0.75rem 0.75rem;
+}
+/* Abas (tabs) */
+.tab-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.tab-button {
+  border-radius: 999px;
+  padding: 0.25rem 0.9rem;
+  font-size: 0.8rem;
+  border: 1px solid #cbd5e1;
+  background: #e5e7eb;
+  cursor: pointer;
+}
+
+.tab-button-active {
+  background: #1d4ed8;
+  color: #ffffff;
+  border-color: #1d4ed8;
+}
+
+/* Cadastro por turma */
+.cadastro-container {
+  margin-top: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.cadastro-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.cadastro-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  font-size: 0.8rem;
+  min-width: 150px;
+}
+
+.cadastro-label {
+  font-weight: 500;
+  color: #374151;
+}
+
+.cadastro-input,
+.cadastro-select {
+  padding: 0.25rem 0.35rem;
+  border-radius: 0.35rem;
+  border: 1px solid #d1d5db;
+  font-size: 0.8rem;
+}
+
+.cadastro-select {
+  background: #f9fafb;
+}
+
+.cadastro-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+}
+
+.button-primary {
+  background: #1d4ed8;
+  color: #ffffff;
+  border: none;
+  padding: 0.45rem 0.9rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.button-primary:hover {
+  background: #1e40af;
+}
+.quadro-linha {
+  font-size: 0.8rem;
+  line-height: 1.2;
+}
+
+.quadro-prof {
+  font-size: 0.75rem;
+  color: #6b7280;
+}
+
+.quadro-vazio {
+  font-size: 0.75rem;
+  color: #9ca3af;
+}
+.login-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.login-input {
+  padding: 0.25rem 0.4rem;
+  border-radius: 999px;
+  border: 1px solid #e5e7eb;
+  font-size: 0.8rem;
+}
+
+.login-user {
+  font-size: 0.8rem;
+}
+
+.quadro-linha {
+  font-size: 0.8rem;
+  line-height: 1.2;
+}
+
+.quadro-prof {
+  font-size: 0.75rem;
+  color: #6b7280;
+}
+
+.quadro-vazio {
+  font-size: 0.75rem;
+  color: #9ca3af;
+}
+
+.log-table td,
+.log-table th {
+  font-size: 0.8rem;
+}
