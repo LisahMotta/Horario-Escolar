@@ -9,6 +9,7 @@ import {
 import type { HorarioCompleto, HorariosPorGrupo } from "./types";
 
 const STORAGE_KEY = "horario-escolar-manha-por-grupo";
+const STORAGE_DRAFT_KEY = "horario-escolar-rascunho-por-grupo";
 const USER_KEY = "horario-escolar-usuario";
 const SNAPSHOT_KEY = "horario-escolar-snapshots";
 
@@ -98,6 +99,27 @@ function carregarHorarios(): HorariosPorGrupo {
 
 function salvarHorarios(horarios: HorariosPorGrupo) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(horarios));
+}
+
+function carregarHorariosRascunho(): HorariosPorGrupo {
+  const salvo = localStorage.getItem(STORAGE_DRAFT_KEY);
+  if (salvo) {
+    try {
+      return JSON.parse(salvo);
+    } catch {
+      // se der erro, ignora e recria
+    }
+  }
+  // por padrão, começa vazio (pode ser preenchido a partir do oficial quando o simulador é ativado)
+  const inicial: HorariosPorGrupo = {};
+  grupos.forEach((g) => {
+    inicial[g.id] = criarHorarioVazioParaGrupo(g.id);
+  });
+  return inicial;
+}
+
+function salvarHorariosRascunho(horarios: HorariosPorGrupo) {
+  localStorage.setItem(STORAGE_DRAFT_KEY, JSON.stringify(horarios));
 }
 
 function carregarSnapshots(): SnapshotHorario[] {
@@ -269,9 +291,15 @@ function App() {
   const [grupoSelecionado, setGrupoSelecionado] = useState<GrupoId>("fund2");
   const [aba, setAba] = useState<AbaId>("quadro");
 
+  // Horário oficial
   const [horarios, setHorarios] = useState<HorariosPorGrupo>(() =>
     carregarHorarios()
   );
+  // Horário de rascunho (simulador)
+  const [horariosRascunho, setHorariosRascunho] = useState<HorariosPorGrupo>(
+    () => carregarHorariosRascunho()
+  );
+  const [modoSimulador, setModoSimulador] = useState(false);
 
   const [logEntries, setLogEntries] = useState<LogEntry[]>(() =>
     carregarLogLocal()
@@ -301,12 +329,19 @@ function App() {
     string | null
   >(null);
 
+  const fonteHorarios = modoSimulador ? horariosRascunho : horarios;
+
   const horarioAtual: HorarioCompleto =
-    horarios[grupoSelecionado] || criarHorarioVazioParaGrupo(grupoSelecionado);
+    fonteHorarios[grupoSelecionado] ||
+    criarHorarioVazioParaGrupo(grupoSelecionado);
 
   useEffect(() => {
     salvarHorarios(horarios);
   }, [horarios]);
+
+  useEffect(() => {
+    salvarHorariosRascunho(horariosRascunho);
+  }, [horariosRascunho]);
 
   useEffect(() => {
     salvarSnapshots(snapshots);
@@ -424,7 +459,9 @@ function App() {
         `Deseja limpar o horário do grupo selecionado (${grupoSelecionado})?`
       )
     ) {
-      setHorarios((prev) => {
+      const setter = modoSimulador ? setHorariosRascunho : setHorarios;
+
+      setter((prev) => {
         const copia: HorariosPorGrupo = structuredClone(prev);
         copia[grupoSelecionado] = criarHorarioVazioParaGrupo(grupoSelecionado);
         return copia;
@@ -432,7 +469,9 @@ function App() {
 
       adicionarLog(
         "limpar_grupo",
-        `Horário do grupo ${grupoSelecionado} foi limpo.`,
+        `Horário do grupo ${grupoSelecionado} foi limpo.${
+          modoSimulador ? " (rascunho)" : ""
+        }`,
         grupoSelecionado
       );
     }
@@ -459,7 +498,8 @@ function App() {
 
     grupos.forEach((g) => {
       const slotsGrupo = slotsPorGrupo[g.id];
-      const horarioGrupo = horarios[g.id];
+      const baseHorarios = modoSimulador ? horariosRascunho : horarios;
+      const horarioGrupo = baseHorarios[g.id];
       if (!horarioGrupo) return;
 
       diasSemana.forEach((dia) => {
@@ -633,7 +673,9 @@ function App() {
       return;
     }
 
-    setHorarios((prev) => {
+    const setter = modoSimulador ? setHorariosRascunho : setHorarios;
+
+    setter((prev) => {
       const copia: HorariosPorGrupo = structuredClone(prev);
 
       if (!copia[grupoSelecionado]) {
@@ -673,7 +715,9 @@ function App() {
       return;
     }
 
-    setHorarios((prev) => {
+    const setter = modoSimulador ? setHorariosRascunho : setHorarios;
+
+    setter((prev) => {
       const copia: HorariosPorGrupo = structuredClone(prev);
 
       if (!copia[grupoSelecionado]) return prev;
@@ -686,7 +730,9 @@ function App() {
 
     adicionarLog(
       "limpar_aula",
-      `Horário limpo: dia=${diaCadastro}, aula=${numAulaCadastro}, grupo=${grupoSelecionado}.`,
+      `Horário limpo: dia=${diaCadastro}, aula=${numAulaCadastro}, grupo=${grupoSelecionado}.${
+        modoSimulador ? " (rascunho)" : ""
+      }`,
       grupoSelecionado
     );
   }
@@ -1126,6 +1172,45 @@ function App() {
     abrirJanelaCartaoImpressao(html, `Cartao-turma-${turma}`);
   }
 
+  // ---------- Simulador: aplicar rascunho no horário oficial ----------
+
+  function handleAlternarSimulador() {
+    if (!modoSimulador) {
+      // ao ativar pela primeira vez, se o rascunho estiver "vazio", copia do oficial
+      const algumPreenchido = Object.values(horariosRascunho).some(
+        (h) => h && Object.keys(h).length > 0
+      );
+      if (!algumPreenchido) {
+        setHorariosRascunho(structuredClone(horarios));
+      }
+    }
+    setModoSimulador((prev) => !prev);
+  }
+
+  function handleAplicarRascunho() {
+    if (!usuarioAtual || !podeEditar(usuarioAtual)) {
+      alert(
+        "Apenas Direção ou Vice-direção podem aplicar o rascunho ao horário oficial."
+      );
+      return;
+    }
+
+    if (
+      !confirm(
+        "Tem certeza que deseja aplicar o horário de rascunho como horário oficial para todos os grupos?"
+      )
+    ) {
+      return;
+    }
+
+    setHorarios(structuredClone(horariosRascunho));
+    setModoSimulador(false);
+    adicionarLog(
+      "simulador_aplicar",
+      "Horário de rascunho aplicado como horário oficial para todos os grupos."
+    );
+  }
+
   // ---------- Filtros e export do log ----------
 
   const usuariosLog = Array.from(
@@ -1279,7 +1364,13 @@ function App() {
             <div className="app-toolbar-left">
               <div className="app-toolbar-title">Horário de Aulas</div>
               <div className="app-toolbar-text">
-                Organização de horários por grupo de turmas e período. <br />
+                Organização de horários por grupo de turmas e período.{" "}
+                {modoSimulador && (
+                  <span style={{ color: "#b45309", fontWeight: 600 }}>
+                    (VISUALIZANDO RASCUNHO)
+                  </span>
+                )}
+                <br />
                 <span className="app-toolbar-highlight">
                   Grupo atual: {infoGrupo.nome} – {infoGrupo.descricao}
                 </span>
@@ -1332,6 +1423,32 @@ function App() {
                   </option>
                 ))}
               </select>
+
+              <label
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "0.25rem",
+                  marginLeft: "0.75rem",
+                  fontSize: "0.75rem",
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={modoSimulador}
+                  onChange={handleAlternarSimulador}
+                />
+                Usar rascunho (simulador)
+              </label>
+              {modoSimulador && (
+                <button
+                  className="button-danger"
+                  style={{ marginLeft: "0.5rem", paddingInline: "0.7rem" }}
+                  onClick={handleAplicarRascunho}
+                >
+                  ⏩ Aplicar rascunho
+                </button>
+              )}
 
               {/* Controle de versões do horário (snapshots) */}
               <select
