@@ -7,6 +7,7 @@ import {
   type TimeSlot,
 } from "./scheduleConfig";
 import type { HorarioCompleto, HorariosPorGrupo } from "./types";
+import logo from "./assets/logo.svg";
 
 const STORAGE_KEY = "horario-escolar-manha-por-grupo";
 const STORAGE_DRAFT_KEY = "horario-escolar-rascunho-por-grupo";
@@ -1443,15 +1444,18 @@ function App() {
       {/* Cabeçalho SEDUC */}
       <header className="app-header">
         <div className="app-header-left">
-          <div className="app-header-title">
-            Secretaria da Educação do Estado de São Paulo
-          </div>
-          <div className="app-header-subtitle">
-            Sistema de Organização de Horário – Manhã, Tarde e Noite
-          </div>
-          <div className="app-header-badge">
-            <span className="app-header-badge-dot" />
-            <span>Uso interno – Gestão Escolar</span>
+          <img src={logo} alt="Logo da escola" className="app-logo" />
+          <div>
+            <div className="app-header-title">
+              Secretaria da Educação do Estado de São Paulo
+            </div>
+            <div className="app-header-subtitle">
+              Sistema de Organização de Horário – Manhã, Tarde e Noite
+            </div>
+            <div className="app-header-badge">
+              <span className="app-header-badge-dot" />
+              <span>Uso interno – Gestão Escolar</span>
+            </div>
           </div>
         </div>
 
