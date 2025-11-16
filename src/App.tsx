@@ -932,6 +932,64 @@ function App() {
     novaJanela.print();
   }
 
+  function abrirJanelaCartaoImpressao(html: string, titulo: string) {
+    const novaJanela = window.open("", "_blank");
+    if (!novaJanela) return;
+    novaJanela.document.write(`
+      <html>
+        <head>
+          <meta charset="UTF-8" />
+          <title>${titulo}</title>
+          <style>
+            body {
+              font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+              padding: 12px;
+              display: flex;
+              justify-content: center;
+            }
+            .card {
+              border: 1px solid #e5e7eb;
+              border-radius: 8px;
+              padding: 8px 10px;
+              max-width: 420px;
+              width: 100%;
+            }
+            h1 {
+              font-size: 16px;
+              margin: 0 0 4px 0;
+            }
+            h2 {
+              font-size: 12px;
+              margin: 0 0 8px 0;
+              color: #4b5563;
+            }
+            table {
+              width: 100%;
+              border-collapse: collapse;
+              font-size: 10px;
+            }
+            th, td {
+              border: 1px solid #e5e7eb;
+              padding: 2px 4px;
+              text-align: center;
+            }
+            th {
+              background: #f3f4f6;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="card">
+            ${html}
+          </div>
+        </body>
+      </html>
+    `);
+    novaJanela.document.close();
+    novaJanela.focus();
+    novaJanela.print();
+  }
+
   function exportarProfessorPDF() {
     if (!professorExport) {
       alert("Selecione um professor para gerar o PDF.");
@@ -992,6 +1050,80 @@ function App() {
 
     html += "</tbody></table>";
     abrirJanelaImpressao(html, `Horario-turma-${turma}`);
+  }
+
+  function exportarProfessorCartaoPDF() {
+    if (!professorExport) {
+      alert("Selecione um professor para gerar o cartão.");
+      return;
+    }
+    const prof = professorExport;
+    const aulasProf = gradeProf[prof] || {};
+
+    let html = `<h1>Professor(a): ${prof}</h1>`;
+    html += `<h2>${infoGrupo.nome} – ${infoGrupo.descricao}</h2>`;
+    html += `<table><thead><tr><th>Dia</th>`;
+    for (let i = 1; i <= 6; i++) {
+      html += `<th>${i}ª</th>`;
+    }
+    html += `</tr></thead><tbody>`;
+
+    diasSemana.forEach((dia) => {
+      const aulasDia = aulasProf[dia] || {};
+      html += `<tr><td>${dia}</td>`;
+      for (let i = 1; i <= 6; i++) {
+        const info = aulasDia[i];
+        let texto = "";
+        if (info) {
+          texto = info.disciplina || "";
+          if (info.turma) {
+            texto += texto ? ` (${info.turma})` : info.turma;
+          }
+        }
+        html += `<td>${texto || "-"}</td>`;
+      }
+      html += `</tr>`;
+    });
+
+    html += "</tbody></table>";
+    abrirJanelaCartaoImpressao(html, `Cartao-prof-${prof}`);
+  }
+
+  function exportarTurmaCartaoPDF() {
+    if (!turmaExport) {
+      alert("Selecione uma turma para gerar o cartão.");
+      return;
+    }
+    const turma = turmaExport;
+    const aulasTurma = gradeTurma[turma] || {};
+
+    let html = `<h1>Turma: ${turma}</h1>`;
+    html += `<h2>${infoGrupo.nome} – ${infoGrupo.descricao}</h2>`;
+    html += `<table><thead><tr><th>Dia</th>`;
+    for (let i = 1; i <= 6; i++) {
+      html += `<th>${i}ª</th>`;
+    }
+    html += `</tr></thead><tbody>`;
+
+    diasSemana.forEach((dia) => {
+      const aulasDia = aulasTurma[dia] || {};
+      html += `<tr><td>${dia}</td>`;
+      for (let i = 1; i <= 6; i++) {
+        const info = aulasDia[i];
+        let texto = "";
+        if (info) {
+          texto = info.disciplina || "";
+          if (info.professor) {
+            texto += texto ? ` (${info.professor})` : info.professor;
+          }
+        }
+        html += `<td>${texto || "-"}</td>`;
+      }
+      html += `</tr>`;
+    });
+
+    html += "</tbody></table>";
+    abrirJanelaCartaoImpressao(html, `Cartao-turma-${turma}`);
   }
 
   // ---------- Filtros e export do log ----------
@@ -1365,6 +1497,12 @@ function App() {
                 >
                   🖨️ PDF
                 </button>
+                <button
+                  className="button-primary"
+                  onClick={exportarProfessorCartaoPDF}
+                >
+                  🪪 Cartão
+                </button>
                 <button className="button-primary" onClick={exportarProfessorCSV}>
                   📊 CSV/Excel
                 </button>
@@ -1391,6 +1529,12 @@ function App() {
                 </select>
                 <button className="button-primary" onClick={exportarTurmaPDF}>
                   🖨️ PDF
+                </button>
+                <button
+                  className="button-primary"
+                  onClick={exportarTurmaCartaoPDF}
+                >
+                  🪪 Cartão
                 </button>
                 <button className="button-primary" onClick={exportarTurmaCSV}>
                   📊 CSV/Excel
