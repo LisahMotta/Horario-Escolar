@@ -1,0 +1,29 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <!-- Fundo com cantos arredondados -->
+  <rect x="32" y="32" width="448" height="448" rx="96" fill="#003B73"></rect>
+
+  <!-- Faixa superior (cabeçalho do calendário) -->
+  <rect x="80" y="120" width="352" height="72" rx="16" fill="#B91C1C"></rect>
+
+  <!-- Grade do calendário -->
+  <rect x="80" y="192" width="352" height="240" rx="24" fill="#FFFFFF"></rect>
+
+  <!-- Linhas horizontais da grade -->
+  <line x1="96" y1="248" x2="416" y2="248" stroke="#E5E7EB" stroke-width="8"></line>
+  <line x1="96" y1="304" x2="416" y2="304" stroke="#E5E7EB" stroke-width="8"></line>
+  <line x1="96" y1="360" x2="416" y2="360" stroke="#E5E7EB" stroke-width="8"></line>
+
+  <!-- Linhas verticais da grade -->
+  <line x1="176" y1="208" x2="176" y2="416" stroke="#E5E7EB" stroke-width="8"></line>
+  <line x1="256" y1="208" x2="256" y2="416" stroke="#E5E7EB" stroke-width="8"></line>
+  <line x1="336" y1="208" x2="336" y2="416" stroke="#E5E7EB" stroke-width="8"></line>
+
+  <!-- Destaque em uma célula (aula marcada) -->
+  <rect x="192" y="264" width="56" height="40" rx="8" fill="#1D4ED8"></rect>
+
+  <!-- Relógio no canto inferior direito -->
+  <circle cx="384" cy="384" r="56" fill="#F3F4F6" stroke="#1D4ED8" stroke-width="8"></circle>
+  <!-- Ponteiros do relógio -->
+  <line x1="384" y1="384" x2="384" y2="356" stroke="#1D4ED8" stroke-width="6" stroke-linecap="round"></line>
+  <line x1="384" y1="384" x2="404" y2="392" stroke="#1D4ED8" stroke-width="6" stroke-linecap="round"></line>
+</svg>
