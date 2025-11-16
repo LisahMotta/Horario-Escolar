@@ -40,8 +40,9 @@ export const grupos: GrupoInfo[] = [
   },
   {
     id: "noite",
-    nome: "Noite",
-    descricao: "Noite (18h50 às 22h50) – intervalo das 20h20 às 20h35",
+    nome: "Noite – 1º, 2º e 3º médio",
+    descricao:
+      "Noite (18h50 às 22h50) – turmas de 1º, 2º e 3º médio, intervalo das 20h20 às 20h35",
   },
 ];
 
