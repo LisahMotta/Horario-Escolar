@@ -19,7 +19,7 @@ const SNAPSHOT_KEY = "horario-escolar-snapshots";
 const PIN_DIRECAO = "1234";
 const PIN_VICE_DIRECAO = "5678";
 
-type AbaId = "quadro" | "cadastro";
+type AbaId = "quadro" | "cadastro" | "relatorios";
 
 type Perfil =
   | "direcao"
@@ -1548,6 +1548,15 @@ function App() {
                 >
                   Cadastro por turma / professor
                 </button>
+                <button
+                  className={
+                    "tab-button " +
+                    (aba === "relatorios" ? "tab-button-active" : "")
+                  }
+                  onClick={() => setAba("relatorios")}
+                >
+                  Relatórios de carga horária
+                </button>
               </div>
             </div>
 
@@ -1972,132 +1981,6 @@ function App() {
                 </div>
               </section>
 
-              {/* Relatórios de carga horária (grupo atual) */}
-              <section style={{ marginTop: "1.5rem" }}>
-                <h2 style={{ fontSize: "1rem", marginBottom: "0.5rem" }}>
-                  Relatórios de carga horária – grupo atual
-                </h2>
-                <div
-                  style={{
-                    display: "flex",
-                    flexWrap: "wrap",
-                    gap: "1rem",
-                    fontSize: "0.8rem",
-                  }}
-                >
-                  <div style={{ flex: "1 1 220px" }}>
-                    <h3
-                      style={{
-                        margin: 0,
-                        marginBottom: "0.25rem",
-                        fontSize: "0.85rem",
-                      }}
-                    >
-                      Por professor(a)
-                    </h3>
-                    <div className="horario-wrapper">
-                      <table className="horario-table log-table">
-                        <thead>
-                          <tr>
-                            <th>Professor(a)</th>
-                            <th>Total de aulas</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {cargaPorProfessor.length === 0 && (
-                            <tr>
-                              <td colSpan={2} style={{ textAlign: "center" }}>
-                                Nenhum professor neste grupo.
-                              </td>
-                            </tr>
-                          )}
-                          {cargaPorProfessor.map((item) => (
-                            <tr key={item.professor}>
-                              <td>{item.professor}</td>
-                              <td>{item.aulas}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-
-                  <div style={{ flex: "1 1 220px" }}>
-                    <h3
-                      style={{
-                        margin: 0,
-                        marginBottom: "0.25rem",
-                        fontSize: "0.85rem",
-                      }}
-                    >
-                      Por turma
-                    </h3>
-                    <div className="horario-wrapper">
-                      <table className="horario-table log-table">
-                        <thead>
-                          <tr>
-                            <th>Turma</th>
-                            <th>Total de aulas</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {cargaPorTurma.length === 0 && (
-                            <tr>
-                              <td colSpan={2} style={{ textAlign: "center" }}>
-                                Nenhuma turma neste grupo.
-                              </td>
-                            </tr>
-                          )}
-                          {cargaPorTurma.map((item) => (
-                            <tr key={item.turma}>
-                              <td>{item.turma}</td>
-                              <td>{item.aulas}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-
-                  <div style={{ flex: "1 1 220px" }}>
-                    <h3
-                      style={{
-                        margin: 0,
-                        marginBottom: "0.25rem",
-                        fontSize: "0.85rem",
-                      }}
-                    >
-                      Por disciplina
-                    </h3>
-                    <div className="horario-wrapper">
-                      <table className="horario-table log-table">
-                        <thead>
-                          <tr>
-                            <th>Disciplina</th>
-                            <th>Total de aulas</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {cargaPorDisciplina.length === 0 && (
-                            <tr>
-                              <td colSpan={2} style={{ textAlign: "center" }}>
-                                Nenhuma disciplina cadastrada neste grupo.
-                              </td>
-                            </tr>
-                          )}
-                          {cargaPorDisciplina.map((item) => (
-                            <tr key={item.disciplina}>
-                              <td>{item.disciplina}</td>
-                              <td>{item.aulas}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                </div>
-              </section>
-
               {/* Alertas de conflitos e qualidade do horário */}
               <section style={{ marginTop: "1.5rem" }}>
                 <h2 style={{ fontSize: "1rem", marginBottom: "0.5rem" }}>
@@ -2460,6 +2343,139 @@ function App() {
                 ir mudando apenas o número da aula para montar o dia inteiro.
                 Depois é só conferir tudo na aba <strong>Quadro geral</strong>.
               </p>
+            </section>
+          )}
+
+          {/* ---------- ABA RELATÓRIOS DE CARGA HORÁRIA ---------- */}
+          {aba === "relatorios" && (
+            <section className="cadastro-container">
+              <h2 style={{ fontSize: "1rem" }}>
+                Relatórios de carga horária – {infoGrupo.nome}
+              </h2>
+              <p style={{ fontSize: "0.85rem", color: "#4b5563" }}>
+                Resumo de aulas por professor, turma e disciplina no grupo
+                selecionado.
+              </p>
+
+              <div
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: "1rem",
+                  fontSize: "0.8rem",
+                }}
+              >
+                <div style={{ flex: "1 1 220px" }}>
+                  <h3
+                    style={{
+                      margin: 0,
+                      marginBottom: "0.25rem",
+                      fontSize: "0.85rem",
+                    }}
+                  >
+                    Por professor(a)
+                  </h3>
+                  <div className="horario-wrapper">
+                    <table className="horario-table log-table">
+                      <thead>
+                        <tr>
+                          <th>Professor(a)</th>
+                          <th>Total de aulas</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {cargaPorProfessor.length === 0 && (
+                          <tr>
+                            <td colSpan={2} style={{ textAlign: "center" }}>
+                              Nenhum professor neste grupo.
+                            </td>
+                          </tr>
+                        )}
+                        {cargaPorProfessor.map((item) => (
+                          <tr key={item.professor}>
+                            <td>{item.professor}</td>
+                            <td>{item.aulas}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <div style={{ flex: "1 1 220px" }}>
+                  <h3
+                    style={{
+                      margin: 0,
+                      marginBottom: "0.25rem",
+                      fontSize: "0.85rem",
+                    }}
+                  >
+                    Por turma
+                  </h3>
+                  <div className="horario-wrapper">
+                    <table className="horario-table log-table">
+                      <thead>
+                        <tr>
+                          <th>Turma</th>
+                          <th>Total de aulas</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {cargaPorTurma.length === 0 && (
+                          <tr>
+                            <td colSpan={2} style={{ textAlign: "center" }}>
+                              Nenhuma turma neste grupo.
+                            </td>
+                          </tr>
+                        )}
+                        {cargaPorTurma.map((item) => (
+                          <tr key={item.turma}>
+                            <td>{item.turma}</td>
+                            <td>{item.aulas}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <div style={{ flex: "1 1 220px" }}>
+                  <h3
+                    style={{
+                      margin: 0,
+                      marginBottom: "0.25rem",
+                      fontSize: "0.85rem",
+                    }}
+                  >
+                    Por disciplina
+                  </h3>
+                  <div className="horario-wrapper">
+                    <table className="horario-table log-table">
+                      <thead>
+                        <tr>
+                          <th>Disciplina</th>
+                          <th>Total de aulas</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {cargaPorDisciplina.length === 0 && (
+                          <tr>
+                            <td colSpan={2} style={{ textAlign: "center" }}>
+                              Nenhuma disciplina cadastrada neste grupo.
+                            </td>
+                          </tr>
+                        )}
+                        {cargaPorDisciplina.map((item) => (
+                          <tr key={item.disciplina}>
+                            <td>{item.disciplina}</td>
+                            <td>{item.aulas}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
             </section>
           )}
         </div>
