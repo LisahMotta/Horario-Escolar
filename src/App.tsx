@@ -20,6 +20,19 @@ interface LogEntry {
   detalhes: string;
 }
 
+declare global {
+  interface WindowEventMap {
+    beforeinstallprompt: BeforeInstallPromptEvent;
+  }
+}
+
+declare global {
+  interface BeforeInstallPromptEvent extends Event {
+    prompt: () => Promise<void>;
+    userChoice: Promise<{ outcome: "accepted" | "dismissed"; platform: string }>;
+  }
+}
+
 // ---------- Funções auxiliares de base ----------
 
 function criarHorarioVazioParaGrupo(grupoId: GrupoId): HorarioCompleto {
@@ -202,6 +215,9 @@ function App() {
     carregarUsuario()
   );
   const [nomeLogin, setNomeLogin] = useState("");
+  const [deferredPrompt, setDeferredPrompt] =
+    useState<BeforeInstallPromptEvent | null>(null);
+  const [pwaDisponivel, setPwaDisponivel] = useState(false);
 
   // estado do formulário de cadastro por turma/professor
   const [turmaCadastro, setTurmaCadastro] = useState("");
@@ -221,6 +237,24 @@ function App() {
   useEffect(() => {
     salvarLogLocal(logEntries);
   }, [logEntries]);
+
+  // Captura evento de instalação PWA (beforeinstallprompt)
+  useEffect(() => {
+    function handleBeforeInstallPrompt(e: BeforeInstallPromptEvent) {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      setPwaDisponivel(true);
+    }
+
+    window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+
+    return () => {
+      window.removeEventListener(
+        "beforeinstallprompt",
+        handleBeforeInstallPrompt
+      );
+    };
+  }, []);
 
   // Carrega log do servidor ao iniciar o app
   useEffect(() => {
@@ -255,6 +289,16 @@ function App() {
     }).catch(() => {
       // Ignora erro: o log local já está registrado
     });
+  }
+
+  async function handleInstalarPWA() {
+    if (!deferredPrompt) return;
+    await deferredPrompt.prompt();
+    const choice = await deferredPrompt.userChoice;
+    if (choice.outcome === "accepted") {
+      setPwaDisponivel(false);
+      setDeferredPrompt(null);
+    }
   }
 
   // function atualizarAulaDireto(
@@ -525,6 +569,15 @@ function App() {
             </div>
 
             <div className="app-toolbar-group">
+              {pwaDisponivel && (
+                <button
+                  className="button-primary"
+                  style={{ marginRight: "0.5rem" }}
+                  onClick={handleInstalarPWA}
+                >
+                  📲 Instalar aplicativo
+                </button>
+              )}
               <label htmlFor="grupo-select" style={{ fontSize: "0.85rem" }}>
                 Grupo de turmas:
               </label>
