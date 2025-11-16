@@ -13,11 +13,29 @@ const USER_KEY = "horario-escolar-usuario";
 
 type AbaId = "quadro" | "cadastro";
 
+type Perfil =
+  | "direcao"
+  | "vice_direcao"
+  | "coordenacao"
+  | "professor";
+
+const PERFIS_LABEL: Record<Perfil, string> = {
+  direcao: "Direção",
+  vice_direcao: "Vice-direção",
+  coordenacao: "Coordenação",
+  professor: "Professor(a)",
+};
+
 interface LogEntry {
   timestamp: string; // ISO string
   usuario: string | null;
   acao: string; // "login", "logout", "salvar_aula", "limpar_aula", "limpar_grupo"
   detalhes: string;
+}
+
+interface UsuarioAtual {
+  nome: string;
+  perfil: Perfil;
 }
 
 declare global {
@@ -86,17 +104,37 @@ function salvarLogLocal(logs: LogEntry[]) {
   localStorage.setItem("horario-escolar-log", JSON.stringify(logs));
 }
 
-function carregarUsuario(): string | null {
+function carregarUsuario(): UsuarioAtual | null {
   const salvo = localStorage.getItem(USER_KEY);
-  return salvo || null;
+  if (!salvo) return null;
+
+  try {
+    const obj = JSON.parse(salvo) as Partial<UsuarioAtual>;
+    if (obj && typeof obj.nome === "string" && obj.perfil) {
+      return { nome: obj.nome, perfil: obj.perfil as Perfil };
+    }
+  } catch {
+    // se não for JSON, trata como formato antigo (apenas nome)
+    if (salvo) {
+      return { nome: salvo, perfil: "professor" };
+    }
+  }
+
+  // fallback para formato antigo
+  return { nome: salvo, perfil: "professor" };
 }
 
-function salvarUsuario(nome: string | null) {
-  if (nome) {
-    localStorage.setItem(USER_KEY, nome);
+function salvarUsuario(usuario: UsuarioAtual | null) {
+  if (usuario) {
+    localStorage.setItem(USER_KEY, JSON.stringify(usuario));
   } else {
     localStorage.removeItem(USER_KEY);
   }
+}
+
+function podeEditar(usuario: UsuarioAtual | null): boolean {
+  if (!usuario) return false;
+  return usuario.perfil === "direcao" || usuario.perfil === "vice_direcao";
 }
 
 // Converte “número da aula” (1 a 6) para o slotId correto, ignorando intervalos
@@ -211,10 +249,11 @@ function App() {
     carregarLogLocal()
   );
 
-  const [usuarioAtual, setUsuarioAtual] = useState<string | null>(() =>
-    carregarUsuario()
+  const [usuarioAtual, setUsuarioAtual] = useState<UsuarioAtual | null>(
+    () => carregarUsuario()
   );
   const [nomeLogin, setNomeLogin] = useState("");
+  const [perfilLogin, setPerfilLogin] = useState<Perfil>("professor");
   const [deferredPrompt, setDeferredPrompt] =
     useState<BeforeInstallPromptEvent | null>(null);
   const [pwaDisponivel, setPwaDisponivel] = useState(false);
@@ -275,7 +314,9 @@ function App() {
   function adicionarLog(acao: string, detalhes: string) {
     const novo: LogEntry = {
       timestamp: new Date().toISOString(),
-      usuario: usuarioAtual,
+      usuario: usuarioAtual
+        ? `${usuarioAtual.nome} (${PERFIS_LABEL[usuarioAtual.perfil]})`
+        : null,
       acao,
       detalhes,
     };
@@ -330,6 +371,13 @@ function App() {
   // }
 
   function limparHorarioGrupoAtual() {
+    if (!podeEditar(usuarioAtual)) {
+      alert(
+        "Apenas usuários com perfil de Direção ou Vice-direção podem limpar o horário."
+      );
+      return;
+    }
+
     if (
       !usuarioAtual &&
       !confirm(
@@ -375,14 +423,21 @@ function App() {
       return;
     }
     const nome = nomeLogin.trim();
-    setUsuarioAtual(nome);
-    salvarUsuario(nome);
+    const usuario: UsuarioAtual = {
+      nome,
+      perfil: perfilLogin,
+    };
+    setUsuarioAtual(usuario);
+    salvarUsuario(usuario);
     setNomeLogin("");
-    adicionarLog("login", `Login efetuado por "${nome}".`);
+    adicionarLog(
+      "login",
+      `Login efetuado por "${nome}" como ${PERFIS_LABEL[perfilLogin]}.`
+    );
   }
 
   function handleLogout() {
-    const nome = usuarioAtual;
+    const nome = usuarioAtual?.nome;
     setUsuarioAtual(null);
     salvarUsuario(null);
     adicionarLog("logout", `Logout de "${nome ?? "usuário desconhecido"}".`);
@@ -391,8 +446,10 @@ function App() {
   // ---------- Ações da aba Cadastro por Turma ----------
 
   function handleSalvarCadastro() {
-    if (!usuarioAtual) {
-      alert("Faça login antes de salvar para registrar quem fez a alteração.");
+    if (!usuarioAtual || !podeEditar(usuarioAtual)) {
+      alert(
+        "Apenas usuários com perfil de Direção ou Vice-direção podem salvar ou alterar aulas."
+      );
       return;
     }
 
@@ -437,8 +494,10 @@ function App() {
   }
 
   function handleLimparCadastroCampo() {
-    if (!usuarioAtual) {
-      alert("Faça login antes de limpar para registrar quem fez a alteração.");
+    if (!usuarioAtual || !podeEditar(usuarioAtual)) {
+      alert(
+        "Apenas usuários com perfil de Direção ou Vice-direção podem limpar este horário."
+      );
       return;
     }
 
@@ -507,7 +566,8 @@ function App() {
           {usuarioAtual ? (
             <>
               <span className="login-user">
-                Usuário: <strong>{usuarioAtual}</strong>
+                Usuário: <strong>{usuarioAtual.nome}</strong> (
+                {PERFIS_LABEL[usuarioAtual.perfil]})
               </span>
               <button className="button-danger" onClick={handleLogout}>
                 Sair
@@ -521,6 +581,16 @@ function App() {
                 value={nomeLogin}
                 onChange={(e) => setNomeLogin(e.target.value)}
               />
+              <select
+                className="cadastro-select"
+                value={perfilLogin}
+                onChange={(e) => setPerfilLogin(e.target.value as Perfil)}
+              >
+                <option value="direcao">Direção</option>
+                <option value="vice_direcao">Vice-direção</option>
+                <option value="coordenacao">Coordenação</option>
+                <option value="professor">Professor(a)</option>
+              </select>
               <button className="button-primary" onClick={handleLogin}>
                 Entrar
               </button>
