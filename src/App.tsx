@@ -6,7 +6,6 @@ import {
   obterConfiguracao,
   type GrupoId,
   type TimeSlot,
-  type GrupoInfo,
 } from "./scheduleConfig";
 import type { HorarioCompleto, HorariosPorGrupo } from "./types";
 import logo from "./assets/logo.svg";
@@ -79,12 +78,14 @@ declare global {
 // ---------- Funções auxiliares de base ----------
 
 function criarHorarioVazioParaGrupo(grupoId: GrupoId): HorarioCompleto {
+  const slotsPorGrupo = getSlotsPorGrupo();
+  const diasSemana = getDiasSemana();
   const slots = slotsPorGrupo[grupoId];
   const horario: HorarioCompleto = {};
 
-  diasSemana.forEach((dia) => {
+  diasSemana.forEach((dia: string) => {
     horario[dia] = {};
-    slots.forEach((slot) => {
+    slots.forEach((slot: TimeSlot) => {
       if (slot.tipo === "aula") {
         horario[dia][slot.id] = null;
       }
@@ -100,6 +101,7 @@ function carregarHorarios(): HorariosPorGrupo {
     return JSON.parse(salvo);
   }
 
+  const grupos = getGrupos();
   const inicial: HorariosPorGrupo = {};
   grupos.forEach((g) => {
     inicial[g.id] = criarHorarioVazioParaGrupo(g.id);
@@ -121,6 +123,7 @@ function carregarHorariosRascunho(): HorariosPorGrupo {
     }
   }
   // por padrão, começa vazio (pode ser preenchido a partir do oficial quando o simulador é ativado)
+  const grupos = getGrupos();
   const inicial: HorariosPorGrupo = {};
   grupos.forEach((g) => {
     inicial[g.id] = criarHorarioVazioParaGrupo(g.id);
@@ -226,8 +229,9 @@ function construirGradeProfessor(
   slots: TimeSlot[]
 ): GradeProfessor {
   const mapa: GradeProfessor = {};
+  const diasSemana = getDiasSemana();
 
-  diasSemana.forEach((dia) => {
+  diasSemana.forEach((dia: string) => {
     let numAula = 0;
 
     slots.forEach((slot) => {
@@ -268,8 +272,9 @@ function construirGradeTurma(
   slots: TimeSlot[]
 ): GradeTurma {
   const mapa: GradeTurma = {};
+  const diasSemana = getDiasSemana();
 
-  diasSemana.forEach((dia) => {
+  diasSemana.forEach((dia: string) => {
     let numAula = 0;
 
     slots.forEach((slot) => {
@@ -299,7 +304,6 @@ function construirGradeTurma(
 
 function App() {
   // Configuração dinâmica da escola
-  const [configVersion, setConfigVersion] = useState(0); // Para forçar re-render quando config mudar
   const grupos = getGrupos();
   const slotsPorGrupo = getSlotsPorGrupo();
   const diasSemana = getDiasSemana();
@@ -2535,7 +2539,6 @@ function App() {
           {aba === "configuracao" && (
             <ConfiguracaoEscola
               onConfigChange={() => {
-                setConfigVersion((v) => v + 1);
                 // Atualiza grupo selecionado se o atual não existir mais
                 const novosGrupos = getGrupos();
                 if (!novosGrupos.find((g) => g.id === grupoSelecionado)) {

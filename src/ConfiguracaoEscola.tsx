@@ -20,10 +20,6 @@ interface ConfiguracaoEscolaProps {
 export function ConfiguracaoEscola({ onConfigChange }: ConfiguracaoEscolaProps) {
   const [config, setConfig] = useState<EscolaConfig>(() => obterConfiguracao());
   const [grupoEditando, setGrupoEditando] = useState<GrupoId | null>(null);
-  const [slotEditando, setSlotEditando] = useState<{
-    grupoId: GrupoId;
-    slotIndex: number;
-  } | null>(null);
 
   // Recarrega a configuração quando o componente monta
   useEffect(() => {
