@@ -10,10 +10,127 @@ export interface TimeSlot {
 // GrupoId agora é string para permitir IDs dinâmicos
 export type GrupoId = string;
 
+// Tipo de período, que determina o limite diário de aulas permitido
+export type TipoPeriodo = "pei" | "parcial" | "noturno";
+
+export const LIMITE_AULAS_POR_TIPO: Record<TipoPeriodo, number> = {
+  pei: 8,
+  parcial: 6,
+  noturno: 5,
+};
+
+export const TIPO_PERIODO_LABEL: Record<TipoPeriodo, string> = {
+  pei: "Escola PEI (período integral) – até 8 aulas/dia",
+  parcial: "Período parcial (manhã/tarde) – até 6 aulas/dia",
+  noturno: "Período noturno – até 5 aulas/dia",
+};
+
+// Uma série/ano com a quantidade de turmas daquele período.
+// As turmas são nomeadas automaticamente em ordem alfabética:
+// { serie: "7º ano", quantidade: 3 } => "7º ano A", "7º ano B", "7º ano C"
+export interface SerieTurmas {
+  serie: string;
+  quantidade: number;
+}
+
+const LETRAS_TURMA = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+export function gerarNomesTurmas(serie: string, quantidade: number): string[] {
+  const serieLimpa = serie.trim();
+  if (!serieLimpa) return [];
+  const qtd = Math.max(0, Math.min(Math.floor(quantidade) || 0, LETRAS_TURMA.length));
+  return Array.from({ length: qtd }, (_, i) => `${serieLimpa} ${LETRAS_TURMA[i]}`);
+}
+
+export function gerarTurmasPorSeries(series: SerieTurmas[]): string[] {
+  return series.flatMap((s) => gerarNomesTurmas(s.serie, s.quantidade));
+}
+
+// Parâmetros para gerar automaticamente os horários (slots) de um período
+// a partir do horário de início, duração da aula, quantidade de aulas e intervalo.
+export interface GeracaoSlotsParams {
+  horaInicio: string; // "07:00"
+  duracaoAulaMin: number; // 50
+  quantidadeAulas: number;
+  intervaloAposAula: number | null; // ex: 3 = intervalo após a 3ª aula; null = sem intervalo
+  duracaoIntervaloMin: number;
+}
+
+function paraMinutos(hora: string): number {
+  const [h, m] = hora.split(":").map((v) => parseInt(v, 10) || 0);
+  return h * 60 + m;
+}
+
+function somarMinutos(hora: string, minutos: number): string {
+  const total = paraMinutos(hora) + minutos;
+  const hh = Math.floor(total / 60) % 24;
+  const mm = total % 60;
+  return `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
+}
+
+// Calcula a duração de cada aula (em minutos) dividindo o intervalo de tempo
+// do período (horaInicio até horaTermino, descontando o intervalo) de forma
+// igual entre a quantidade de aulas informada.
+export function calcularDuracaoAulaMin(
+  horaInicio: string,
+  horaTermino: string,
+  quantidadeAulas: number,
+  duracaoIntervaloMin: number
+): number {
+  if (quantidadeAulas <= 0) return 0;
+  const totalMin = paraMinutos(horaTermino) - paraMinutos(horaInicio);
+  const disponivel = totalMin - (duracaoIntervaloMin > 0 ? duracaoIntervaloMin : 0);
+  return Math.max(1, Math.floor(disponivel / quantidadeAulas));
+}
+
+export function gerarSlots(params: GeracaoSlotsParams): TimeSlot[] {
+  const slots: TimeSlot[] = [];
+  let cursor = params.horaInicio;
+  let id = 1;
+
+  for (let numeroAula = 1; numeroAula <= params.quantidadeAulas; numeroAula++) {
+    const inicio = cursor;
+    const fim = somarMinutos(cursor, params.duracaoAulaMin);
+    slots.push({
+      id: id++,
+      label: `${inicio} - ${fim} (Aula ${numeroAula})`,
+      tipo: "aula",
+    });
+    cursor = fim;
+
+    if (params.intervaloAposAula === numeroAula && params.duracaoIntervaloMin > 0) {
+      const fimIntervalo = somarMinutos(cursor, params.duracaoIntervaloMin);
+      slots.push({
+        id: id++,
+        label: `${cursor} - ${fimIntervalo} (Intervalo)`,
+        tipo: "intervalo",
+      });
+      cursor = fimIntervalo;
+    }
+  }
+
+  return slots;
+}
+
 export interface GrupoInfo {
   id: GrupoId;
   nome: string;
   descricao: string; // aparece na tela como resumo do período / intervalo
+
+  // Campos estruturados opcionais (preenchidos pelo assistente de geração automática
+  // na Configuração da Escola). Continuam opcionais para não quebrar configurações
+  // antigas que só usam `descricao` + edição manual dos horários.
+  tipoPeriodo?: TipoPeriodo;
+  horaInicio?: string;
+  horaTermino?: string;
+  quantidadeAulas?: number;
+  duracaoAulaMin?: number;
+  intervaloAposAula?: number | null;
+  duracaoIntervaloMin?: number;
+
+  // Séries/anos e turmas geradas automaticamente para este período
+  series?: SerieTurmas[];
+  turmas?: string[];
 }
 
 // Configuração completa da escola atual.
@@ -185,6 +302,13 @@ export function getSlotsPorGrupo(): Record<GrupoId, TimeSlot[]> {
 
 export function getDiasSemana(): string[] {
   return configAtual.diasSemana;
+}
+
+// Turmas geradas automaticamente (a partir das séries) para um período.
+// Retorna [] se o período ainda não tiver séries configuradas.
+export function getTurmasPorGrupo(grupoId: GrupoId): string[] {
+  const grupo = configAtual.grupos.find((g) => g.id === grupoId);
+  return grupo?.turmas ?? [];
 }
 
 // Nota: Os exports estáticos abaixo são calculados uma vez no carregamento.
