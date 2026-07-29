@@ -301,7 +301,7 @@ export function Dashboard({ horarios }: DashboardProps) {
       {/* Gráficos e Tabelas */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.5rem", marginBottom: "2rem" }}>
         {/* Distribuição por Dia */}
-        <div>
+        <div style={{ minWidth: 0 }}>
           <h3 style={{ fontSize: "1rem", marginBottom: "1rem" }}>Ocupação por Dia da Semana</h3>
           <div className="horario-wrapper">
             <table className="horario-table log-table">
@@ -363,7 +363,7 @@ export function Dashboard({ horarios }: DashboardProps) {
         </div>
 
         {/* Distribuição por Grupo */}
-        <div>
+        <div style={{ minWidth: 0 }}>
           <h3 style={{ fontSize: "1rem", marginBottom: "1rem" }}>Ocupação por Grupo</h3>
           <div className="horario-wrapper">
             <table className="horario-table log-table">
@@ -428,7 +428,7 @@ export function Dashboard({ horarios }: DashboardProps) {
       {/* Top Rankings */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "1.5rem", marginBottom: "2rem" }}>
         {/* Top Professores */}
-        <div>
+        <div style={{ minWidth: 0 }}>
           <h3 style={{ fontSize: "1rem", marginBottom: "1rem" }}>Top 10 Professores</h3>
           <div className="horario-wrapper">
             <table className="horario-table log-table">
@@ -487,7 +487,7 @@ export function Dashboard({ horarios }: DashboardProps) {
         </div>
 
         {/* Top Turmas */}
-        <div>
+        <div style={{ minWidth: 0 }}>
           <h3 style={{ fontSize: "1rem", marginBottom: "1rem" }}>Top 10 Turmas</h3>
           <div className="horario-wrapper">
             <table className="horario-table log-table">
@@ -546,7 +546,7 @@ export function Dashboard({ horarios }: DashboardProps) {
         </div>
 
         {/* Top Disciplinas */}
-        <div>
+        <div style={{ minWidth: 0 }}>
           <h3 style={{ fontSize: "1rem", marginBottom: "1rem" }}>Top 10 Disciplinas</h3>
           <div className="horario-wrapper">
             <table className="horario-table log-table">
