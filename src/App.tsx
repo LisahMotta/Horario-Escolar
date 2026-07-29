@@ -3,6 +3,7 @@ import {
   Buildings,
   Bell,
   CaretDown,
+  Clock,
   Info,
   SignOut,
   UsersThree,
@@ -12,12 +13,16 @@ import {
   getGrupos,
   getSlotsPorGrupo,
   getDiasSemana,
+  getTurmasPorGrupo,
   obterConfiguracao,
   type GrupoId,
   type TimeSlot,
 } from "./scheduleConfig";
 import type { HorarioCompleto, HorariosPorGrupo } from "./types";
 import { ConfiguracaoEscola } from "./ConfiguracaoEscola";
+import { Professores } from "./Professores";
+import type { ProfessorInfo } from "./professores";
+import { carregarProfessores } from "./professores";
 import { AuthScreen } from "./AuthScreen";
 import { HistoricoAlteracoes } from "./HistoricoAlteracoes";
 import { Dashboard } from "./Dashboard";
@@ -46,7 +51,7 @@ const SNAPSHOT_KEY = "horario-escolar-snapshots";
 export const PIN_DIRECAO = "1234";
 export const PIN_VICE_DIRECAO = "5678";
 
-export type AbaId = "dashboard" | "quadro" | "cadastro" | "grades" | "relatorios" | "configuracao" | "historico" | "exportacao";
+export type AbaId = "dashboard" | "quadro" | "cadastro" | "grades" | "relatorios" | "configuracao" | "professores" | "historico" | "exportacao";
 
 export const HORARIO_TABS: AbaId[] = [
   "quadro",
@@ -385,6 +390,9 @@ function App() {
   );
 
   const [usuarioAtual, setUsuarioAtual] = useState<UsuarioAtual | null>(null);
+  const [professores, setProfessores] = useState<ProfessorInfo[]>(() =>
+    carregarProfessores()
+  );
   const [menuUsuarioAberto, setMenuUsuarioAberto] = useState(false);
   const [notificacoesAbertas, setNotificacoesAbertas] = useState(false);
   const menuUsuarioRef = useRef<HTMLDivElement>(null);
@@ -643,6 +651,20 @@ function App() {
 
   const slots = slotsPorGrupo[grupoSelecionado];
   const infoGrupo = grupos.find((g) => g.id === grupoSelecionado)!;
+  const turmasDoGrupoCadastro = getTurmasPorGrupo(grupoSelecionado);
+  const numerosAulaDisponiveis = Array.from(
+    { length: slots.filter((s) => s.tipo === "aula").length },
+    (_, i) => i + 1
+  );
+
+  // Garante que o número da aula selecionado no cadastro continue válido
+  // ao trocar para um grupo com menos aulas.
+  useEffect(() => {
+    if (!numerosAulaDisponiveis.includes(numAulaCadastro)) {
+      setNumAulaCadastro(numerosAulaDisponiveis[0] || 1);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [grupoSelecionado]);
 
   // Grades derivadas (para quadro geral)
   const gradeProf = construirGradeProfessor(horarioAtual, slots);
@@ -813,6 +835,67 @@ function App() {
 
     return alertas;
   })();
+
+  // Limite de 10 aulas diárias para professores que também atuam em outra
+  // unidade escolar: soma as aulas desta escola (todos os grupos) com as
+  // aulas informadas no cadastro de professores para a outra unidade.
+  const alertasLimiteAulas = (() => {
+    const baseHorarios = modoSimulador ? horariosRascunho : horarios;
+    const aulasPorProfessorEDia: Record<string, Record<string, number>> = {};
+
+    grupos.forEach((g) => {
+      const slotsGrupo = slotsPorGrupo[g.id];
+      const horarioGrupo = baseHorarios[g.id];
+      if (!horarioGrupo || !slotsGrupo) return;
+
+      diasSemana.forEach((dia) => {
+        slotsGrupo.forEach((slot) => {
+          if (slot.tipo !== "aula") return;
+          const aulaInfo = horarioGrupo[dia]?.[slot.id];
+          const prof = aulaInfo?.professor?.trim();
+          if (!prof) return;
+          const chave = prof.toLowerCase();
+          if (!aulasPorProfessorEDia[chave]) aulasPorProfessorEDia[chave] = {};
+          aulasPorProfessorEDia[chave][dia] =
+            (aulasPorProfessorEDia[chave][dia] || 0) + 1;
+        });
+      });
+    });
+
+    const alertas: {
+      professor: string;
+      dia: string;
+      aulasNestaEscola: number;
+      aulasOutraUnidade: number;
+      total: number;
+    }[] = [];
+
+    professores.forEach((p) => {
+      if (!p.atuaOutraUnidade || !p.nome.trim()) return;
+      const chave = p.nome.trim().toLowerCase();
+      const porDia = aulasPorProfessorEDia[chave] || {};
+
+      diasSemana.forEach((dia) => {
+        const aulasNestaEscola = porDia[dia] || 0;
+        const aulasOutraUnidade = p.horariosOutraUnidade[dia]?.aulasNoDia || 0;
+        const total = aulasNestaEscola + aulasOutraUnidade;
+        if (total > 10) {
+          alertas.push({
+            professor: p.nome,
+            dia,
+            aulasNestaEscola,
+            aulasOutraUnidade,
+            total,
+          });
+        }
+      });
+    });
+
+    return alertas;
+  })();
+
+  const totalAlertasAutomaticos =
+    conflitosProfessores.length + alertasTurmas.length + alertasLimiteAulas.length;
 
   // ---------- Logout ----------
 
@@ -1653,6 +1736,7 @@ function App() {
         onPainelPrincipal={() => setAba("dashboard")}
         onHorarioDeAulas={() => setAba("quadro")}
         onConfiguracao={() => setAba("configuracao")}
+        onProfessores={() => setAba("professores")}
         podeConfigurar={podeEditar(usuarioAtual)}
         usuarioNome={usuarioAtual?.nome}
         usuarioPerfilLabel={
@@ -1691,16 +1775,16 @@ function App() {
                   onClick={() => setNotificacoesAbertas((v) => !v)}
                 >
                   <Bell size={19} />
-                  {conflitosProfessores.length + alertasTurmas.length > 0 && (
+                  {totalAlertasAutomaticos > 0 && (
                     <span className="icon-button-badge">
-                      {conflitosProfessores.length + alertasTurmas.length}
+                      {totalAlertasAutomaticos}
                     </span>
                   )}
                 </button>
                 {notificacoesAbertas && (
                   <div className="notif-dropdown">
                     <div className="notif-dropdown-title">Alertas automáticos</div>
-                    {conflitosProfessores.length + alertasTurmas.length === 0 ? (
+                    {totalAlertasAutomaticos === 0 ? (
                       <p className="notif-empty">Nenhum alerta no momento.</p>
                     ) : (
                       <ul className="notif-list">
@@ -1717,6 +1801,14 @@ function App() {
                             <WarningCircle size={15} weight="fill" />
                             <span>
                               {a.turma}: {a.mensagens[0]}
+                            </span>
+                          </li>
+                        ))}
+                        {alertasLimiteAulas.slice(0, 3).map((a, idx) => (
+                          <li key={"limite-" + idx}>
+                            <WarningCircle size={15} weight="fill" />
+                            <span>
+                              {a.professor} ultrapassa 10 aulas/dia – {a.dia} ({a.total} aulas)
                             </span>
                           </li>
                         ))}
@@ -2244,6 +2336,32 @@ function App() {
                     )}
                     </div>
                   </div>
+
+                  <div className="alert-card">
+                    <span className="alert-card-icon alert-card-icon-danger">
+                      <Clock size={20} weight="fill" />
+                    </span>
+                    <div className="alert-card-body">
+                    <h3>Limite de 10 aulas diárias (docentes em outra unidade)</h3>
+                    {alertasLimiteAulas.length === 0 ? (
+                      <p className="alert-card-ok-text">
+                        Nenhum docente com acúmulo de outra unidade ultrapassando
+                        10 aulas em um mesmo dia.
+                      </p>
+                    ) : (
+                      <ul style={{ margin: 0, paddingLeft: "1.1rem" }}>
+                        {alertasLimiteAulas.map((a, idx) => (
+                          <li key={idx}>
+                            <strong>{a.professor}</strong> – {a.dia}:{" "}
+                            {a.aulasNestaEscola} aula(s) nesta escola +{" "}
+                            {a.aulasOutraUnidade} na outra unidade ={" "}
+                            {a.total} aulas.
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    </div>
+                  </div>
                 </div>
               </section>
 
@@ -2437,22 +2555,90 @@ function App() {
               <div className="cadastro-grid">
                 <div className="cadastro-field">
                   <label className="cadastro-label">Turma</label>
-                  <input
-                    className="cadastro-input"
-                    placeholder="Ex: 6º A"
-                    value={turmaCadastro}
-                    onChange={(e) => setTurmaCadastro(e.target.value)}
-                  />
+                  {turmasDoGrupoCadastro.length > 0 ? (
+                    <>
+                      <select
+                        className="cadastro-select"
+                        value={
+                          turmasDoGrupoCadastro.includes(turmaCadastro)
+                            ? turmaCadastro
+                            : "__outra__"
+                        }
+                        onChange={(e) =>
+                          setTurmaCadastro(
+                            e.target.value === "__outra__" ? "" : e.target.value
+                          )
+                        }
+                      >
+                        <option value="__outra__">Outra (digitar manualmente)</option>
+                        {turmasDoGrupoCadastro.map((t) => (
+                          <option key={t} value={t}>
+                            {t}
+                          </option>
+                        ))}
+                      </select>
+                      {!turmasDoGrupoCadastro.includes(turmaCadastro) && (
+                        <input
+                          className="cadastro-input"
+                          placeholder="Ex: 6º A"
+                          value={turmaCadastro}
+                          onChange={(e) => setTurmaCadastro(e.target.value)}
+                          style={{ marginTop: "0.35rem" }}
+                        />
+                      )}
+                    </>
+                  ) : (
+                    <input
+                      className="cadastro-input"
+                      placeholder="Ex: 6º A"
+                      value={turmaCadastro}
+                      onChange={(e) => setTurmaCadastro(e.target.value)}
+                    />
+                  )}
                 </div>
 
                 <div className="cadastro-field">
                   <label className="cadastro-label">Professor(a)</label>
-                  <input
-                    className="cadastro-input"
-                    placeholder="Nome do(a) professor(a)"
-                    value={profCadastro}
-                    onChange={(e) => setProfCadastro(e.target.value)}
-                  />
+                  {professores.length > 0 ? (
+                    <>
+                      <select
+                        className="cadastro-select"
+                        value={
+                          professores.some((p) => p.nome === profCadastro)
+                            ? profCadastro
+                            : "__outro__"
+                        }
+                        onChange={(e) =>
+                          setProfCadastro(
+                            e.target.value === "__outro__" ? "" : e.target.value
+                          )
+                        }
+                      >
+                        <option value="__outro__">Outro (digitar manualmente)</option>
+                        {professores.map((p) => (
+                          <option key={p.id} value={p.nome}>
+                            {p.nome}
+                          </option>
+                        ))}
+                      </select>
+                      {!professores.some((p) => p.nome === profCadastro) && (
+                        <input
+                          className="cadastro-input"
+                          placeholder="Nome do(a) professor(a)"
+                          value={profCadastro}
+                          onChange={(e) => setProfCadastro(e.target.value)}
+                          style={{ marginTop: "0.35rem" }}
+                        />
+                      )}
+                    </>
+                  ) : (
+                    <input
+                      className="cadastro-input"
+                      placeholder="Nome do(a) professor(a)"
+                      value={profCadastro}
+                      onChange={(e) => setProfCadastro(e.target.value)}
+                    />
+                  )}
                 </div>
 
                 <div className="cadastro-field">
@@ -2489,12 +2675,11 @@ function App() {
                       setNumAulaCadastro(Number(e.target.value))
                     }
                   >
-                    <option value={1}>1ª aula</option>
-                    <option value={2}>2ª aula</option>
-                    <option value={3}>3ª aula</option>
-                    <option value={4}>4ª aula</option>
-                    <option value={5}>5ª aula</option>
-                    <option value={6}>6ª aula</option>
+                    {numerosAulaDisponiveis.map((n) => (
+                      <option key={n} value={n}>
+                        {n}ª aula
+                      </option>
+                    ))}
                   </select>
                 </div>
               </div>
@@ -2811,6 +2996,13 @@ function App() {
                   );
                 }
               }}
+            />
+          )}
+
+          {/* ---------- ABA PROFESSORES ---------- */}
+          {aba === "professores" && (
+            <Professores
+              onProfessoresChange={() => setProfessores(carregarProfessores())}
             />
           )}
         </div>
