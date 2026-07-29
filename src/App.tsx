@@ -1734,7 +1734,7 @@ function App() {
             <div className="app-toolbar-group">
               {pwaDisponivel && (
                 <button
-                  className="button-primary"
+                  className="button-secondary"
                   style={{ marginRight: "0.5rem" }}
                   onClick={handleInstalarPWA}
                 >
@@ -1775,21 +1775,21 @@ function App() {
                 }}
               >
                 <button
-                  className="button-primary"
+                  className="button-secondary"
                   style={{ paddingInline: "0.6rem" }}
                   onClick={() => setTemaEscuro((prev) => !prev)}
                 >
                   {temaEscuro ? "☀️ Claro" : "🌙 Escuro"}
                 </button>
                 <button
-                  className="button-primary"
+                  className="button-secondary"
                   style={{ paddingInline: "0.5rem" }}
                   onClick={() => ajustarFonte(1)}
                 >
                   A+
                 </button>
                 <button
-                  className="button-primary"
+                  className="button-secondary"
                   style={{ paddingInline: "0.5rem" }}
                   onClick={() => ajustarFonte(-1)}
                 >
