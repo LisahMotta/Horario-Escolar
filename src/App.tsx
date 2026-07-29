@@ -1,4 +1,13 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import {
+  Buildings,
+  Bell,
+  CaretDown,
+  Info,
+  SignOut,
+  UsersThree,
+  WarningCircle,
+} from "@phosphor-icons/react";
 import {
   getGrupos,
   getSlotsPorGrupo,
@@ -8,12 +17,12 @@ import {
   type TimeSlot,
 } from "./scheduleConfig";
 import type { HorarioCompleto, HorariosPorGrupo } from "./types";
-import logo from "./assets/logo.svg";
 import { ConfiguracaoEscola } from "./ConfiguracaoEscola";
 import { AuthScreen } from "./AuthScreen";
 import { HistoricoAlteracoes } from "./HistoricoAlteracoes";
 import { Dashboard } from "./Dashboard";
 import { ExportacaoImportacao } from "./ExportacaoImportacao";
+import { Sidebar } from "./Sidebar";
 import {
   verificarSessao,
   fazerLogout as apiFazerLogout,
@@ -37,7 +46,16 @@ const SNAPSHOT_KEY = "horario-escolar-snapshots";
 export const PIN_DIRECAO = "1234";
 export const PIN_VICE_DIRECAO = "5678";
 
-type AbaId = "dashboard" | "quadro" | "cadastro" | "grades" | "relatorios" | "configuracao" | "historico" | "exportacao";
+export type AbaId = "dashboard" | "quadro" | "cadastro" | "grades" | "relatorios" | "configuracao" | "historico" | "exportacao";
+
+export const HORARIO_TABS: AbaId[] = [
+  "quadro",
+  "cadastro",
+  "grades",
+  "relatorios",
+  "historico",
+  "exportacao",
+];
 
 export type Perfil =
   | "direcao"
@@ -223,6 +241,13 @@ function podeEditar(usuario: UsuarioAtual | null): boolean {
   return usuario.perfil === "direcao" || usuario.perfil === "vice_direcao";
 }
 
+function iniciaisUsuario(nome: string): string {
+  const partes = nome.trim().split(/\s+/);
+  const primeira = partes[0]?.[0] ?? "";
+  const ultima = partes.length > 1 ? partes[partes.length - 1][0] : "";
+  return (primeira + ultima).toUpperCase();
+}
+
 // Converte “número da aula” (1 a 6) para o slotId correto, ignorando intervalos
 function aulaNumeroParaSlotId(slots: TimeSlot[], numAula: number): number | null {
   let contador = 0;
@@ -360,7 +385,32 @@ function App() {
   );
 
   const [usuarioAtual, setUsuarioAtual] = useState<UsuarioAtual | null>(null);
-  
+  const [menuUsuarioAberto, setMenuUsuarioAberto] = useState(false);
+  const [notificacoesAbertas, setNotificacoesAbertas] = useState(false);
+  const menuUsuarioRef = useRef<HTMLDivElement>(null);
+  const notificacoesRef = useRef<HTMLDivElement>(null);
+
+  // Fecha os menus do topo ao clicar fora deles
+  useEffect(() => {
+    function handleClickFora(event: MouseEvent) {
+      if (
+        menuUsuarioRef.current &&
+        !menuUsuarioRef.current.contains(event.target as Node)
+      ) {
+        setMenuUsuarioAberto(false);
+      }
+      if (
+        notificacoesRef.current &&
+        !notificacoesRef.current.contains(event.target as Node)
+      ) {
+        setNotificacoesAbertas(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickFora);
+    return () => document.removeEventListener("mousedown", handleClickFora);
+  }, []);
+
+
   // Carrega horários do servidor quando usuarioAtual muda
   useEffect(() => {
     if (usuarioAtual) {
@@ -1596,49 +1646,141 @@ function App() {
   }
 
   return (
-    <div className="app-container">
-      {/* Cabeçalho SEDUC */}
-      <header className="app-header">
-        <div className="app-header-left">
-          <img src={logo} alt="Logo da escola" className="app-logo" />
-          <div>
-            <div className="app-header-title">
-              {config.nomeEscola || "Secretaria da Educação do Estado de São Paulo"}
-            </div>
-            <div className="app-header-subtitle">
-              Sistema de Organização de Horário – Manhã, Tarde e Noite
-            </div>
-            <div className="app-header-badge">
-              <span className="app-header-badge-dot" />
-              <span>Uso interno – Gestão Escolar</span>
-            </div>
-          </div>
-        </div>
+    <div className="app-shell">
+      <Sidebar
+        abaAtiva={aba}
+        horarioAtivo={HORARIO_TABS.includes(aba)}
+        onPainelPrincipal={() => setAba("dashboard")}
+        onHorarioDeAulas={() => setAba("quadro")}
+        onConfiguracao={() => setAba("configuracao")}
+        podeConfigurar={podeEditar(usuarioAtual)}
+        usuarioNome={usuarioAtual?.nome}
+        usuarioPerfilLabel={
+          usuarioAtual ? PERFIS_LABEL[usuarioAtual.perfil] : undefined
+        }
+      />
 
-        {/* Login no topo */}
-        <div className="login-bar">
-          {modoPublico ? (
-            <span className="login-user">
-              Modo público – apenas leitura (sem login).
+      <div className="app-shell-main">
+        {/* Cabeçalho */}
+        <header className="app-header">
+          <div className="app-header-left">
+            <span className="app-header-icon">
+              <Buildings size={20} weight="duotone" />
             </span>
-          ) : usuarioAtual ? (
-            <>
+            <div>
+              <div className="app-header-title">
+                {config.nomeEscola || "Secretaria da Educação do Estado de São Paulo"}
+              </div>
+              <div className="app-header-subtitle">
+                Sistema de Organização de Horário – Manhã, Tarde e Noite
+              </div>
+            </div>
+            <span className="app-header-badge">
+              <span className="app-header-badge-dot" />
+              Uso interno – Gestão Escolar
+            </span>
+          </div>
+
+          <div className="topbar-actions">
+            {!modoPublico && usuarioAtual && (
+              <div className="notif-wrapper" ref={notificacoesRef}>
+                <button
+                  type="button"
+                  className="icon-button"
+                  aria-label="Notificações"
+                  onClick={() => setNotificacoesAbertas((v) => !v)}
+                >
+                  <Bell size={19} />
+                  {conflitosProfessores.length + alertasTurmas.length > 0 && (
+                    <span className="icon-button-badge">
+                      {conflitosProfessores.length + alertasTurmas.length}
+                    </span>
+                  )}
+                </button>
+                {notificacoesAbertas && (
+                  <div className="notif-dropdown">
+                    <div className="notif-dropdown-title">Alertas automáticos</div>
+                    {conflitosProfessores.length + alertasTurmas.length === 0 ? (
+                      <p className="notif-empty">Nenhum alerta no momento.</p>
+                    ) : (
+                      <ul className="notif-list">
+                        {conflitosProfessores.slice(0, 3).map((c, idx) => (
+                          <li key={"conf-" + idx}>
+                            <WarningCircle size={15} weight="fill" />
+                            <span>
+                              {c.professor} em duas turmas – {c.dia}, {c.numAula}ª aula
+                            </span>
+                          </li>
+                        ))}
+                        {alertasTurmas.slice(0, 3).map((a, idx) => (
+                          <li key={"turma-" + idx}>
+                            <WarningCircle size={15} weight="fill" />
+                            <span>
+                              {a.turma}: {a.mensagens[0]}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    <button
+                      type="button"
+                      className="notif-dropdown-link"
+                      onClick={() => {
+                        setAba("quadro");
+                        setNotificacoesAbertas(false);
+                      }}
+                    >
+                      Ver todos os alertas
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {modoPublico ? (
               <span className="login-user">
-                Usuário: <strong>{usuarioAtual.nome}</strong> (
-                {PERFIS_LABEL[usuarioAtual.perfil]})
+                Modo público – apenas leitura (sem login).
               </span>
-              <button className="button-danger" onClick={handleLogout}>
-                Sair
-              </button>
-            </>
-          ) : null}
-        </div>
-      </header>
+            ) : usuarioAtual ? (
+              <div className="user-menu-wrapper" ref={menuUsuarioRef}>
+                <button
+                  type="button"
+                  className="user-chip"
+                  onClick={() => setMenuUsuarioAberto((v) => !v)}
+                >
+                  <span className="user-chip-avatar">
+                    {iniciaisUsuario(usuarioAtual.nome)}
+                  </span>
+                  <span className="user-chip-text">
+                    <span className="user-chip-name">{usuarioAtual.nome}</span>
+                    <span className="user-chip-role">
+                      {PERFIS_LABEL[usuarioAtual.perfil]}
+                    </span>
+                  </span>
+                  <CaretDown size={13} />
+                </button>
+                {menuUsuarioAberto && (
+                  <div className="user-menu-dropdown">
+                    <button
+                      type="button"
+                      className="user-menu-item"
+                      onClick={handleLogout}
+                    >
+                      <SignOut size={16} />
+                      Sair
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : null}
+          </div>
+        </header>
 
       {/* Conteúdo */}
       <main className="app-main">
         <div className="app-content">
           {/* Barra superior */}
+          {HORARIO_TABS.includes(aba) && (
           <div className="app-toolbar">
             <div className="app-toolbar-left">
               <div className="app-toolbar-title">Horário de Aulas</div>
@@ -1649,22 +1791,17 @@ function App() {
                     (VISUALIZANDO RASCUNHO)
                   </span>
                 )}
-                <br />
-                <span className="app-toolbar-highlight">
-                  Grupo atual: {infoGrupo.nome} – {infoGrupo.descricao}
+              </div>
+
+              <div className="info-banner">
+                <Info size={17} weight="fill" />
+                <span>
+                  Grupo atual: <strong>{infoGrupo.nome}</strong> – {infoGrupo.descricao}
                 </span>
               </div>
 
               {/* Abas */}
               <div className="tab-bar">
-                <button
-                  className={
-                    "tab-button " + (aba === "dashboard" ? "tab-button-active" : "")
-                  }
-                  onClick={() => setAba("dashboard")}
-                >
-                  📊 Dashboard
-                </button>
                 <button
                   className={
                     "tab-button " + (aba === "quadro" ? "tab-button-active" : "")
@@ -1717,24 +1854,13 @@ function App() {
                 >
                   💾 Exportar/Importar
                 </button>
-                {podeEditar(usuarioAtual) && (
-                  <button
-                    className={
-                      "tab-button " +
-                      (aba === "configuracao" ? "tab-button-active" : "")
-                    }
-                    onClick={() => setAba("configuracao")}
-                  >
-                    ⚙️ Configuração
-                  </button>
-                )}
               </div>
             </div>
 
             <div className="app-toolbar-group">
               {pwaDisponivel && (
                 <button
-                  className="button-primary"
+                  className="button-secondary"
                   style={{ marginRight: "0.5rem" }}
                   onClick={handleInstalarPWA}
                 >
@@ -1775,21 +1901,21 @@ function App() {
                 }}
               >
                 <button
-                  className="button-primary"
+                  className="button-secondary"
                   style={{ paddingInline: "0.6rem" }}
                   onClick={() => setTemaEscuro((prev) => !prev)}
                 >
                   {temaEscuro ? "☀️ Claro" : "🌙 Escuro"}
                 </button>
                 <button
-                  className="button-primary"
+                  className="button-secondary"
                   style={{ paddingInline: "0.5rem" }}
                   onClick={() => ajustarFonte(1)}
                 >
                   A+
                 </button>
                 <button
-                  className="button-primary"
+                  className="button-secondary"
                   style={{ paddingInline: "0.5rem" }}
                   onClick={() => ajustarFonte(-1)}
                 >
@@ -1858,6 +1984,7 @@ function App() {
               </button>
             </div>
           </div>
+          )}
 
           {/* ---------- ABA DASHBOARD ---------- */}
           {aba === "dashboard" && (
@@ -2048,31 +2175,17 @@ function App() {
               </div>
 
               {/* Alertas de conflitos e qualidade do horário */}
-              <section style={{ marginTop: "1.5rem" }}>
-                <h2 style={{ fontSize: "1rem", marginBottom: "0.5rem" }}>
-                  Alertas automáticos
-                </h2>
-                <div
-                  style={{
-                    display: "flex",
-                    flexWrap: "wrap",
-                    gap: "1rem",
-                    fontSize: "0.8rem",
-                  }}
-                >
-                  <div style={{ flex: "1 1 260px" }}>
-                    <h3
-                      style={{
-                        margin: 0,
-                        marginBottom: "0.25rem",
-                        fontSize: "0.85rem",
-                        color: "#b91c1c",
-                      }}
-                    >
-                      Professores em duas turmas ao mesmo tempo
-                    </h3>
+              <section style={{ marginTop: "1.75rem" }}>
+                <h2 className="section-title">Alertas automáticos</h2>
+                <div className="alert-cards">
+                  <div className="alert-card">
+                    <span className="alert-card-icon alert-card-icon-danger">
+                      <UsersThree size={20} weight="fill" />
+                    </span>
+                    <div className="alert-card-body">
+                    <h3>Professores em duas turmas ao mesmo tempo</h3>
                     {conflitosProfessores.length === 0 ? (
-                      <p style={{ margin: 0, color: "#059669" }}>
+                      <p className="alert-card-ok-text">
                         Nenhum conflito de professor encontrado entre grupos.
                       </p>
                     ) : (
@@ -2105,21 +2218,17 @@ function App() {
                         ))}
                       </ul>
                     )}
+                    </div>
                   </div>
 
-                  <div style={{ flex: "1 1 260px" }}>
-                    <h3
-                      style={{
-                        margin: 0,
-                        marginBottom: "0.25rem",
-                        fontSize: "0.85rem",
-                        color: "#b45309",
-                      }}
-                    >
-                      Buracos e excesso de aulas seguidas por turma (grupo atual)
-                    </h3>
+                  <div className="alert-card">
+                    <span className="alert-card-icon alert-card-icon-warning">
+                      <WarningCircle size={20} weight="fill" />
+                    </span>
+                    <div className="alert-card-body">
+                    <h3>Buracos e excesso de aulas seguidas por turma (grupo atual)</h3>
                     {alertasTurmas.length === 0 ? (
-                      <p style={{ margin: 0, color: "#059669" }}>
+                      <p className="alert-card-ok-text">
                         Nenhum buraco ou sequência excessiva encontrado neste
                         grupo.
                       </p>
@@ -2133,6 +2242,7 @@ function App() {
                         ))}
                       </ul>
                     )}
+                    </div>
                   </div>
                 </div>
               </section>
@@ -2140,7 +2250,7 @@ function App() {
               {/* Diferenças entre horário atual e versão selecionada */}
               {snapshotSelecionadoId && (
                 <section style={{ marginTop: "1.5rem" }}>
-                  <h2 style={{ fontSize: "1rem", marginBottom: "0.5rem" }}>
+                  <h2 className="section-title">
                     Comparação – horário atual x versão selecionada (grupo{" "}
                     {infoGrupo.nome})
                   </h2>
@@ -2180,7 +2290,7 @@ function App() {
 
               {/* Log (resumo) */}
               <section style={{ marginTop: "1.5rem" }}>
-                <h2 style={{ fontSize: "1rem", marginBottom: "0.5rem" }}>
+                <h2 className="section-title">
                   Últimas ações registradas
                 </h2>
 
@@ -2706,10 +2816,11 @@ function App() {
         </div>
       </main>
 
-      <footer className="app-footer">
-        PWA experimental para organização de horários – desenvolvido para apoio à
-        gestão escolar.
-      </footer>
+        <footer className="app-footer">
+          PWA experimental para organização de horários – desenvolvido para apoio à
+          gestão escolar.
+        </footer>
+      </div>
     </div>
   );
 }

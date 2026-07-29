@@ -3,6 +3,7 @@ import type { Perfil } from "./App";
 import { PIN_DIRECAO, PIN_VICE_DIRECAO } from "./App";
 import logo from "./assets/logo.svg";
 import { cadastrarUsuario as apiCadastrarUsuario, fazerLogin as apiFazerLogin } from "./api";
+import "./AuthScreen.css";
 
 interface AuthScreenProps {
   onLogin: (nome: string, perfil: Perfil) => void;
@@ -11,7 +12,7 @@ interface AuthScreenProps {
 
 export function AuthScreen({ onLogin, onLoginRapido }: AuthScreenProps) {
   const [modo, setModo] = useState<"login" | "cadastro" | "rapido">("login");
-  
+
   // Estados para login
   const [emailLogin, setEmailLogin] = useState("");
   const [senhaLogin, setSenhaLogin] = useState("");
@@ -34,7 +35,7 @@ export function AuthScreen({ onLogin, onLoginRapido }: AuthScreenProps) {
 
   async function handleLogin() {
     setErroLogin("");
-    
+
     if (!emailLogin.trim() || !senhaLogin.trim()) {
       setErroLogin("Preencha email e senha.");
       return;
@@ -128,95 +129,32 @@ export function AuthScreen({ onLogin, onLoginRapido }: AuthScreenProps) {
   }
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-        padding: "1rem",
-      }}
-    >
-      <div
-        style={{
-          background: "white",
-          borderRadius: "16px",
-          boxShadow: "0 20px 60px rgba(0,0,0,0.3)",
-          padding: "2.5rem",
-          maxWidth: "450px",
-          width: "100%",
-        }}
-      >
+    <div className="auth-page">
+      <div className="auth-card">
         {/* Logo e título */}
-        <div style={{ textAlign: "center", marginBottom: "2rem" }}>
-          <img
-            src={logo}
-            alt="Logo"
-            style={{ width: "80px", height: "80px", marginBottom: "1rem" }}
-          />
-          <h1 style={{ margin: 0, fontSize: "1.5rem", color: "#1f2937" }}>
-            Sistema de Horário Escolar
-          </h1>
-          <p style={{ margin: "0.5rem 0 0", color: "#6b7280", fontSize: "0.9rem" }}>
-            Organização de horários por grupo de turmas
-          </p>
+        <div className="auth-header">
+          <img src={logo} alt="Logo" className="auth-logo" />
+          <h1 className="auth-title">Sistema de Horário Escolar</h1>
+          <p className="auth-subtitle">Organização de horários por grupo de turmas</p>
         </div>
 
         {/* Tabs */}
-        <div
-          style={{
-            display: "flex",
-            gap: "0.5rem",
-            marginBottom: "1.5rem",
-            borderBottom: "2px solid #e5e7eb",
-          }}
-        >
+        <div className="auth-tabs">
           <button
             onClick={() => setModo("login")}
-            style={{
-              flex: 1,
-              padding: "0.75rem",
-              border: "none",
-              background: "transparent",
-              cursor: "pointer",
-              borderBottom: modo === "login" ? "2px solid #667eea" : "2px solid transparent",
-              color: modo === "login" ? "#667eea" : "#6b7280",
-              fontWeight: modo === "login" ? 600 : 400,
-              transition: "all 0.2s",
-            }}
+            className={"auth-tab " + (modo === "login" ? "auth-tab-active" : "")}
           >
             Login
           </button>
           <button
             onClick={() => setModo("cadastro")}
-            style={{
-              flex: 1,
-              padding: "0.75rem",
-              border: "none",
-              background: "transparent",
-              cursor: "pointer",
-              borderBottom: modo === "cadastro" ? "2px solid #667eea" : "2px solid transparent",
-              color: modo === "cadastro" ? "#667eea" : "#6b7280",
-              fontWeight: modo === "cadastro" ? 600 : 400,
-              transition: "all 0.2s",
-            }}
+            className={"auth-tab " + (modo === "cadastro" ? "auth-tab-active" : "")}
           >
             Cadastro
           </button>
           <button
             onClick={() => setModo("rapido")}
-            style={{
-              flex: 1,
-              padding: "0.75rem",
-              border: "none",
-              background: "transparent",
-              cursor: "pointer",
-              borderBottom: modo === "rapido" ? "2px solid #667eea" : "2px solid transparent",
-              color: modo === "rapido" ? "#667eea" : "#6b7280",
-              fontWeight: modo === "rapido" ? 600 : 400,
-              transition: "all 0.2s",
-            }}
+            className={"auth-tab " + (modo === "rapido" ? "auth-tab-active" : "")}
           >
             Rápido
           </button>
@@ -230,74 +168,32 @@ export function AuthScreen({ onLogin, onLoginRapido }: AuthScreenProps) {
               handleLogin();
             }}
           >
-            <div style={{ marginBottom: "1rem" }}>
-              <label
-                style={{
-                  display: "block",
-                  marginBottom: "0.5rem",
-                  fontSize: "0.875rem",
-                  fontWeight: 500,
-                  color: "#374151",
-                }}
-              >
-                Email
-              </label>
+            <div className="auth-field">
+              <label className="auth-label">Email</label>
               <input
                 type="email"
                 value={emailLogin}
                 onChange={(e) => setEmailLogin(e.target.value)}
                 placeholder="seu@email.com"
-                style={{
-                  width: "100%",
-                  padding: "0.75rem",
-                  border: "1px solid #d1d5db",
-                  borderRadius: "8px",
-                  fontSize: "1rem",
-                  boxSizing: "border-box",
-                }}
+                className="auth-input"
                 required
               />
             </div>
 
-            <div style={{ marginBottom: "1rem" }}>
-              <label
-                style={{
-                  display: "block",
-                  marginBottom: "0.5rem",
-                  fontSize: "0.875rem",
-                  fontWeight: 500,
-                  color: "#374151",
-                }}
-              >
-                Senha
-              </label>
+            <div className="auth-field">
+              <label className="auth-label">Senha</label>
               <input
                 type="password"
                 value={senhaLogin}
                 onChange={(e) => setSenhaLogin(e.target.value)}
                 placeholder="••••••••"
-                style={{
-                  width: "100%",
-                  padding: "0.75rem",
-                  border: "1px solid #d1d5db",
-                  borderRadius: "8px",
-                  fontSize: "1rem",
-                  boxSizing: "border-box",
-                }}
+                className="auth-input"
                 required
               />
             </div>
 
-            <div style={{ marginBottom: "1.5rem" }}>
-              <label
-                style={{
-                  display: "block",
-                  marginBottom: "0.5rem",
-                  fontSize: "0.875rem",
-                  fontWeight: 500,
-                  color: "#374151",
-                }}
-              >
+            <div className="auth-field">
+              <label className="auth-label">
                 PIN (opcional - apenas para Direção/Vice-direção)
               </label>
               <input
@@ -305,49 +201,13 @@ export function AuthScreen({ onLogin, onLoginRapido }: AuthScreenProps) {
                 value={pinLogin}
                 onChange={(e) => setPinLogin(e.target.value)}
                 placeholder="PIN administrativo"
-                style={{
-                  width: "100%",
-                  padding: "0.75rem",
-                  border: "1px solid #d1d5db",
-                  borderRadius: "8px",
-                  fontSize: "1rem",
-                  boxSizing: "border-box",
-                }}
+                className="auth-input"
               />
             </div>
 
-            {erroLogin && (
-              <div
-                style={{
-                  padding: "0.75rem",
-                  background: "#fee2e2",
-                  color: "#991b1b",
-                  borderRadius: "8px",
-                  marginBottom: "1rem",
-                  fontSize: "0.875rem",
-                }}
-              >
-                {erroLogin}
-              </div>
-            )}
+            {erroLogin && <div className="auth-error">{erroLogin}</div>}
 
-            <button
-              type="submit"
-              style={{
-                width: "100%",
-                padding: "0.75rem",
-                background: "#667eea",
-                color: "white",
-                border: "none",
-                borderRadius: "8px",
-                fontSize: "1rem",
-                fontWeight: 600,
-                cursor: "pointer",
-                transition: "background 0.2s",
-              }}
-              onMouseOver={(e) => (e.currentTarget.style.background = "#5568d3")}
-              onMouseOut={(e) => (e.currentTarget.style.background = "#667eea")}
-            >
+            <button type="submit" className="auth-submit">
               Entrar
             </button>
           </form>
@@ -361,87 +221,36 @@ export function AuthScreen({ onLogin, onLoginRapido }: AuthScreenProps) {
               handleCadastro();
             }}
           >
-            <div style={{ marginBottom: "1rem" }}>
-              <label
-                style={{
-                  display: "block",
-                  marginBottom: "0.5rem",
-                  fontSize: "0.875rem",
-                  fontWeight: 500,
-                  color: "#374151",
-                }}
-              >
-                Nome completo
-              </label>
+            <div className="auth-field">
+              <label className="auth-label">Nome completo</label>
               <input
                 type="text"
                 value={nomeCadastro}
                 onChange={(e) => setNomeCadastro(e.target.value)}
                 placeholder="Seu nome"
-                style={{
-                  width: "100%",
-                  padding: "0.75rem",
-                  border: "1px solid #d1d5db",
-                  borderRadius: "8px",
-                  fontSize: "1rem",
-                  boxSizing: "border-box",
-                }}
+                className="auth-input"
                 required
               />
             </div>
 
-            <div style={{ marginBottom: "1rem" }}>
-              <label
-                style={{
-                  display: "block",
-                  marginBottom: "0.5rem",
-                  fontSize: "0.875rem",
-                  fontWeight: 500,
-                  color: "#374151",
-                }}
-              >
-                Email
-              </label>
+            <div className="auth-field">
+              <label className="auth-label">Email</label>
               <input
                 type="email"
                 value={emailCadastro}
                 onChange={(e) => setEmailCadastro(e.target.value)}
                 placeholder="seu@email.com"
-                style={{
-                  width: "100%",
-                  padding: "0.75rem",
-                  border: "1px solid #d1d5db",
-                  borderRadius: "8px",
-                  fontSize: "1rem",
-                  boxSizing: "border-box",
-                }}
+                className="auth-input"
                 required
               />
             </div>
 
-            <div style={{ marginBottom: "1rem" }}>
-              <label
-                style={{
-                  display: "block",
-                  marginBottom: "0.5rem",
-                  fontSize: "0.875rem",
-                  fontWeight: 500,
-                  color: "#374151",
-                }}
-              >
-                Perfil
-              </label>
+            <div className="auth-field">
+              <label className="auth-label">Perfil</label>
               <select
                 value={perfilCadastro}
                 onChange={(e) => setPerfilCadastro(e.target.value as Perfil)}
-                style={{
-                  width: "100%",
-                  padding: "0.75rem",
-                  border: "1px solid #d1d5db",
-                  borderRadius: "8px",
-                  fontSize: "1rem",
-                  boxSizing: "border-box",
-                }}
+                className="auth-input"
               >
                 <option value="professor">Professor(a)</option>
                 <option value="coordenacao">Coordenação</option>
@@ -453,125 +262,45 @@ export function AuthScreen({ onLogin, onLoginRapido }: AuthScreenProps) {
             </div>
 
             {(perfilCadastro === "direcao" || perfilCadastro === "vice_direcao") && (
-              <div style={{ marginBottom: "1rem" }}>
-                <label
-                  style={{
-                    display: "block",
-                    marginBottom: "0.5rem",
-                    fontSize: "0.875rem",
-                    fontWeight: 500,
-                    color: "#374151",
-                  }}
-                >
-                  PIN (opcional)
-                </label>
+              <div className="auth-field">
+                <label className="auth-label">PIN (opcional)</label>
                 <input
                   type="password"
                   value={pinCadastro}
                   onChange={(e) => setPinCadastro(e.target.value)}
                   placeholder="PIN para perfil administrativo"
-                  style={{
-                    width: "100%",
-                    padding: "0.75rem",
-                    border: "1px solid #d1d5db",
-                    borderRadius: "8px",
-                    fontSize: "1rem",
-                    boxSizing: "border-box",
-                  }}
+                  className="auth-input"
                 />
               </div>
             )}
 
-            <div style={{ marginBottom: "1rem" }}>
-              <label
-                style={{
-                  display: "block",
-                  marginBottom: "0.5rem",
-                  fontSize: "0.875rem",
-                  fontWeight: 500,
-                  color: "#374151",
-                }}
-              >
-                Senha
-              </label>
+            <div className="auth-field">
+              <label className="auth-label">Senha</label>
               <input
                 type="password"
                 value={senhaCadastro}
                 onChange={(e) => setSenhaCadastro(e.target.value)}
                 placeholder="Mínimo 4 caracteres"
-                style={{
-                  width: "100%",
-                  padding: "0.75rem",
-                  border: "1px solid #d1d5db",
-                  borderRadius: "8px",
-                  fontSize: "1rem",
-                  boxSizing: "border-box",
-                }}
+                className="auth-input"
                 required
               />
             </div>
 
-            <div style={{ marginBottom: "1.5rem" }}>
-              <label
-                style={{
-                  display: "block",
-                  marginBottom: "0.5rem",
-                  fontSize: "0.875rem",
-                  fontWeight: 500,
-                  color: "#374151",
-                }}
-              >
-                Confirmar senha
-              </label>
+            <div className="auth-field">
+              <label className="auth-label">Confirmar senha</label>
               <input
                 type="password"
                 value={confirmarSenha}
                 onChange={(e) => setConfirmarSenha(e.target.value)}
                 placeholder="Digite a senha novamente"
-                style={{
-                  width: "100%",
-                  padding: "0.75rem",
-                  border: "1px solid #d1d5db",
-                  borderRadius: "8px",
-                  fontSize: "1rem",
-                  boxSizing: "border-box",
-                }}
+                className="auth-input"
                 required
               />
             </div>
 
-            {erroCadastro && (
-              <div
-                style={{
-                  padding: "0.75rem",
-                  background: "#fee2e2",
-                  color: "#991b1b",
-                  borderRadius: "8px",
-                  marginBottom: "1rem",
-                  fontSize: "0.875rem",
-                }}
-              >
-                {erroCadastro}
-              </div>
-            )}
+            {erroCadastro && <div className="auth-error">{erroCadastro}</div>}
 
-            <button
-              type="submit"
-              style={{
-                width: "100%",
-                padding: "0.75rem",
-                background: "#667eea",
-                color: "white",
-                border: "none",
-                borderRadius: "8px",
-                fontSize: "1rem",
-                fontWeight: 600,
-                cursor: "pointer",
-                transition: "background 0.2s",
-              }}
-              onMouseOver={(e) => (e.currentTarget.style.background = "#5568d3")}
-              onMouseOut={(e) => (e.currentTarget.style.background = "#667eea")}
-            >
+            <button type="submit" className="auth-submit">
               Criar conta
             </button>
           </form>
@@ -585,58 +314,24 @@ export function AuthScreen({ onLogin, onLoginRapido }: AuthScreenProps) {
               handleLoginRapido();
             }}
           >
-            <div style={{ marginBottom: "1rem" }}>
-              <label
-                style={{
-                  display: "block",
-                  marginBottom: "0.5rem",
-                  fontSize: "0.875rem",
-                  fontWeight: 500,
-                  color: "#374151",
-                }}
-              >
-                Nome
-              </label>
+            <div className="auth-field">
+              <label className="auth-label">Nome</label>
               <input
                 type="text"
                 value={nomeRapido}
                 onChange={(e) => setNomeRapido(e.target.value)}
                 placeholder="Seu nome"
-                style={{
-                  width: "100%",
-                  padding: "0.75rem",
-                  border: "1px solid #d1d5db",
-                  borderRadius: "8px",
-                  fontSize: "1rem",
-                  boxSizing: "border-box",
-                }}
+                className="auth-input"
                 required
               />
             </div>
 
-            <div style={{ marginBottom: "1rem" }}>
-              <label
-                style={{
-                  display: "block",
-                  marginBottom: "0.5rem",
-                  fontSize: "0.875rem",
-                  fontWeight: 500,
-                  color: "#374151",
-                }}
-              >
-                Perfil
-              </label>
+            <div className="auth-field">
+              <label className="auth-label">Perfil</label>
               <select
                 value={perfilRapido}
                 onChange={(e) => setPerfilRapido(e.target.value as Perfil)}
-                style={{
-                  width: "100%",
-                  padding: "0.75rem",
-                  border: "1px solid #d1d5db",
-                  borderRadius: "8px",
-                  fontSize: "1rem",
-                  boxSizing: "border-box",
-                }}
+                className="auth-input"
               >
                 <option value="professor">Professor(a)</option>
                 <option value="coordenacao">Coordenação</option>
@@ -648,63 +343,23 @@ export function AuthScreen({ onLogin, onLoginRapido }: AuthScreenProps) {
             </div>
 
             {(perfilRapido === "direcao" || perfilRapido === "vice_direcao") && (
-              <div style={{ marginBottom: "1.5rem" }}>
-                <label
-                  style={{
-                    display: "block",
-                    marginBottom: "0.5rem",
-                    fontSize: "0.875rem",
-                    fontWeight: 500,
-                    color: "#374151",
-                  }}
-                >
-                  PIN (opcional)
-                </label>
+              <div className="auth-field">
+                <label className="auth-label">PIN (opcional)</label>
                 <input
                   type="password"
                   value={pinRapido}
                   onChange={(e) => setPinRapido(e.target.value)}
                   placeholder="PIN para perfil administrativo"
-                  style={{
-                    width: "100%",
-                    padding: "0.75rem",
-                    border: "1px solid #d1d5db",
-                    borderRadius: "8px",
-                    fontSize: "1rem",
-                    boxSizing: "border-box",
-                  }}
+                  className="auth-input"
                 />
               </div>
             )}
 
-            <button
-              type="submit"
-              style={{
-                width: "100%",
-                padding: "0.75rem",
-                background: "#667eea",
-                color: "white",
-                border: "none",
-                borderRadius: "8px",
-                fontSize: "1rem",
-                fontWeight: 600,
-                cursor: "pointer",
-                transition: "background 0.2s",
-              }}
-              onMouseOver={(e) => (e.currentTarget.style.background = "#5568d3")}
-              onMouseOut={(e) => (e.currentTarget.style.background = "#667eea")}
-            >
+            <button type="submit" className="auth-submit">
               Entrar rapidamente
             </button>
 
-            <p
-              style={{
-                marginTop: "1rem",
-                fontSize: "0.75rem",
-                color: "#6b7280",
-                textAlign: "center",
-              }}
-            >
+            <p className="auth-hint">
               Login rápido não requer cadastro, mas seus dados não serão salvos.
             </p>
           </form>
@@ -713,4 +368,3 @@ export function AuthScreen({ onLogin, onLoginRapido }: AuthScreenProps) {
     </div>
   );
 }
-
