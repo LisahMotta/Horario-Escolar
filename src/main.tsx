@@ -9,8 +9,9 @@ createRoot(document.getElementById("root")!).render(
   </StrictMode>
 );
 
-// Registro simples do service worker (para PWA)
-if ("serviceWorker" in navigator) {
+// Registro simples do service worker (para PWA) — apenas em produção,
+// para não interceptar os fetches do servidor de desenvolvimento do Vite.
+if (import.meta.env.PROD && "serviceWorker" in navigator) {
   window.addEventListener("load", () => {
     navigator.serviceWorker
       .register("/sw.js")
