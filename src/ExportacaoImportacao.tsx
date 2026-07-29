@@ -1,17 +1,15 @@
 import { useState } from "react";
 import type { HorariosPorGrupo } from "./types";
 import { getGrupos, getSlotsPorGrupo, getDiasSemana, obterConfiguracao, salvarConfiguracao } from "./scheduleConfig";
-import { buscarHorarios, salvarHorario } from "./api";
+import { salvarHorario } from "./api";
 
 interface ExportacaoImportacaoProps {
   horarios: HorariosPorGrupo;
-  usuarioId: number | null;
   onHorariosAtualizados: () => void;
 }
 
 export function ExportacaoImportacao({
   horarios,
-  usuarioId,
   onHorariosAtualizados,
 }: ExportacaoImportacaoProps) {
   const [processando, setProcessando] = useState(false);
@@ -219,8 +217,7 @@ export function ExportacaoImportacao({
                 parseInt(slotId),
                 aula.disciplina || "",
                 aula.professor || "",
-                aula.turma || "",
-                usuarioId || 0
+                aula.turma || ""
               );
               importados++;
             } catch (error) {
@@ -335,8 +332,7 @@ export function ExportacaoImportacao({
             slot.id,
             registro.disciplina,
             registro.professor,
-            registro.turma,
-            usuarioId || 0
+            registro.turma
           );
           importados++;
         } catch (error) {
@@ -442,8 +438,7 @@ export function ExportacaoImportacao({
                 parseInt(slotId),
                 aula.disciplina || "",
                 aula.professor || "",
-                aula.turma || "",
-                usuarioId || 0
+                aula.turma || ""
               );
               importados++;
             } catch (error) {

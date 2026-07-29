@@ -2671,7 +2671,6 @@ function App() {
           {/* ---------- ABA HISTÓRICO DE ALTERAÇÕES ---------- */}
           {aba === "historico" && (
             <HistoricoAlteracoes
-              usuarioId={null}
               horariosAtuais={horarios}
               onRestaurarSnapshot={(dados) => {
                 setHorarios(dados);
@@ -2684,7 +2683,6 @@ function App() {
           {aba === "exportacao" && (
             <ExportacaoImportacao
               horarios={horarios}
-              usuarioId={null}
               onHorariosAtualizados={() => {
                 carregarHorarios().then(setHorarios).catch(console.error);
               }}

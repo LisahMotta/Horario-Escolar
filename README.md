@@ -2,6 +2,21 @@
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
+## Como rodar o projeto
+
+Este app tem dois processos: o frontend (Vite) e o backend (Express + SQLite). Os dois precisam estar rodando ao mesmo tempo, senão as chamadas de API falham com `ERR_CONNECTION_REFUSED`.
+
+```bash
+npm install
+
+# Opção 1: sobe frontend e backend juntos
+npm run dev:full
+
+# Opção 2: em dois terminais separados
+npm run server   # backend na porta 3000
+npm run dev      # frontend na porta 5173 (http://localhost:5173)
+```
+
 Currently, two official plugins are available:
 
 - [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
