@@ -3,6 +3,7 @@ import {
   CalendarBlank,
   GearSix,
   ChalkboardTeacher,
+  Users,
 } from "@phosphor-icons/react";
 import logo from "./assets/logo.svg";
 import type { AbaId } from "./App";
@@ -14,6 +15,7 @@ interface SidebarProps {
   onHorarioDeAulas: () => void;
   onConfiguracao: () => void;
   onProfessores: () => void;
+  onUsuarios: () => void;
   podeConfigurar: boolean;
   usuarioNome?: string;
   usuarioPerfilLabel?: string;
@@ -33,6 +35,7 @@ export function Sidebar({
   onHorarioDeAulas,
   onConfiguracao,
   onProfessores,
+  onUsuarios,
   podeConfigurar,
   usuarioNome,
   usuarioPerfilLabel,
@@ -93,6 +96,16 @@ export function Sidebar({
             >
               <ChalkboardTeacher size={19} weight={abaAtiva === "professores" ? "fill" : "regular"} />
               Professores
+            </button>
+            <button
+              type="button"
+              className={
+                "sidebar-link " + (abaAtiva === "usuarios" ? "sidebar-link-active" : "")
+              }
+              onClick={onUsuarios}
+            >
+              <Users size={19} weight={abaAtiva === "usuarios" ? "fill" : "regular"} />
+              Usuários
             </button>
           </div>
         )}

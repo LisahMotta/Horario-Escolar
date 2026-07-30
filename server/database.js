@@ -1,4 +1,5 @@
 import Database from "better-sqlite3";
+import crypto from "crypto";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -131,8 +132,29 @@ function inicializarBanco() {
   console.log("Banco de dados inicializado com sucesso!");
 }
 
+// Cria uma conta padrão de Direção no primeiro uso, para que a escola
+// consiga entrar e cadastrar os demais usuários sem depender de um
+// cadastro público (removido por segurança).
+function seedUsuarioPadrao() {
+  const { total } = db.prepare("SELECT COUNT(*) as total FROM usuarios").get();
+  if (total > 0) return;
+
+  const senhaHash = crypto.createHash("sha256").update("trocar123").digest("hex");
+  const agora = new Date().toISOString();
+
+  db.prepare(
+    `INSERT INTO usuarios (email, nome, senha_hash, perfil, criado_em, atualizado_em)
+     VALUES (?, ?, ?, ?, ?, ?)`
+  ).run("direcao@escola.com", "Direção", senhaHash, "direcao", agora, agora);
+
+  console.log(
+    "Usuário padrão criado — email: direcao@escola.com | senha: trocar123 (recomendamos avisar a direção para ter cuidado com este acesso)."
+  );
+}
+
 // Inicializa o banco na importação
 inicializarBanco();
+seedUsuarioPadrao();
 
 export default db;
 

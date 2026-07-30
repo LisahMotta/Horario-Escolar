@@ -17,6 +17,20 @@ npm run server   # backend na porta 3000
 npm run dev      # frontend na porta 5173 (http://localhost:5173)
 ```
 
+## Primeiro acesso
+
+Não existe mais cadastro público. No primeiro uso, o backend cria automaticamente
+uma conta de Direção:
+
+- **Email:** `direcao@escola.com`
+- **Senha:** `trocar123`
+
+Entre com essa conta e cadastre os demais usuários (coordenação, GOE, AOE,
+professores) em **Configurações → Usuários**. Apenas Direção e Vice-direção
+podem cadastrar/editar horários e usuários — os demais perfis têm acesso
+somente de consulta. Não existe tela de troca de senha ainda, então recomenda-se
+cuidado com esse acesso padrão.
+
 Currently, two official plugins are available:
 
 - [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh

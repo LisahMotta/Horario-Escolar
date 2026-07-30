@@ -21,6 +21,7 @@ import {
 import type { HorarioCompleto, HorariosPorGrupo } from "./types";
 import { ConfiguracaoEscola } from "./ConfiguracaoEscola";
 import { Professores } from "./Professores";
+import { Usuarios } from "./Usuarios";
 import type { ProfessorInfo } from "./professoresStore";
 import { carregarProfessores } from "./professoresStore";
 import { AuthScreen } from "./AuthScreen";
@@ -47,11 +48,7 @@ const FONT_KEY = "horario-escolar-font-scale";
 const USER_KEY = "horario-escolar-usuario";
 const SNAPSHOT_KEY = "horario-escolar-snapshots";
 
-// PINs simples para perfis administrativos (pode ajustar depois, se quiser)
-export const PIN_DIRECAO = "1234";
-export const PIN_VICE_DIRECAO = "5678";
-
-export type AbaId = "dashboard" | "quadro" | "cadastro" | "grades" | "relatorios" | "configuracao" | "professores" | "historico" | "exportacao";
+export type AbaId = "dashboard" | "quadro" | "cadastro" | "grades" | "relatorios" | "configuracao" | "professores" | "usuarios" | "historico" | "exportacao";
 
 export const HORARIO_TABS: AbaId[] = [
   "quadro",
@@ -70,7 +67,7 @@ export type Perfil =
   | "aoe"
   | "professor";
 
-const PERFIS_LABEL: Record<Perfil, string> = {
+export const PERFIS_LABEL: Record<Perfil, string> = {
   direcao: "Direção",
   vice_direcao: "Vice-direção",
   coordenacao: "Coordenação",
@@ -651,6 +648,7 @@ function App() {
 
   const slots = slotsPorGrupo[grupoSelecionado];
   const infoGrupo = grupos.find((g) => g.id === grupoSelecionado)!;
+  const podeEditarAgora = podeEditar(usuarioAtual);
   const turmasDoGrupoCadastro = getTurmasPorGrupo(grupoSelecionado);
   const numerosAulaDisponiveis = Array.from(
     { length: slots.filter((s) => s.tipo === "aula").length },
@@ -1715,15 +1713,6 @@ function App() {
             `Login efetuado por "${nome}" como ${PERFIS_LABEL[perfil as Perfil]}.`
           );
         }}
-        onLoginRapido={(nome, perfil) => {
-          const usuario: UsuarioAtual = { nome, perfil };
-          setUsuarioAtual(usuario);
-          salvarUsuario(usuario);
-          adicionarLog(
-            "login",
-            `Login rápido efetuado por "${nome}" como ${PERFIS_LABEL[perfil as Perfil]}.`
-          );
-        }}
       />
     );
   }
@@ -1737,6 +1726,7 @@ function App() {
         onHorarioDeAulas={() => setAba("quadro")}
         onConfiguracao={() => setAba("configuracao")}
         onProfessores={() => setAba("professores")}
+        onUsuarios={() => setAba("usuarios")}
         podeConfigurar={podeEditar(usuarioAtual)}
         usuarioNome={usuarioAtual?.nome}
         usuarioPerfilLabel={
@@ -1902,15 +1892,17 @@ function App() {
                 >
                   Quadro geral
                 </button>
-                <button
-                  className={
-                    "tab-button " +
-                    (aba === "cadastro" ? "tab-button-active" : "")
-                  }
-                  onClick={() => setAba("cadastro")}
-                >
-                  Cadastro por turma / professor
-                </button>
+                {podeEditarAgora && (
+                  <button
+                    className={
+                      "tab-button " +
+                      (aba === "cadastro" ? "tab-button-active" : "")
+                    }
+                    onClick={() => setAba("cadastro")}
+                  >
+                    Cadastro por turma / professor
+                  </button>
+                )}
                 <button
                   className={
                     "tab-button " + (aba === "grades" ? "tab-button-active" : "")
@@ -2015,65 +2007,69 @@ function App() {
                 </button>
               </div>
 
-              <label
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "0.25rem",
-                  marginLeft: "0.75rem",
-                  fontSize: "0.75rem",
-                }}
-              >
-                <input
-                  type="checkbox"
-                  checked={modoSimulador}
-                  onChange={handleAlternarSimulador}
-                />
-                Usar rascunho (simulador)
-              </label>
-              {modoSimulador && (
-                <button
-                  className="button-danger"
-                  style={{ marginLeft: "0.5rem", paddingInline: "0.7rem" }}
-                  onClick={handleAplicarRascunho}
-                >
-                  ⏩ Aplicar rascunho
-                </button>
-              )}
+              {podeEditarAgora && (
+                <>
+                  <label
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "0.25rem",
+                      marginLeft: "0.75rem",
+                      fontSize: "0.75rem",
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={modoSimulador}
+                      onChange={handleAlternarSimulador}
+                    />
+                    Usar rascunho (simulador)
+                  </label>
+                  {modoSimulador && (
+                    <button
+                      className="button-danger"
+                      style={{ marginLeft: "0.5rem", paddingInline: "0.7rem" }}
+                      onClick={handleAplicarRascunho}
+                    >
+                      ⏩ Aplicar rascunho
+                    </button>
+                  )}
 
-              {/* Controle de versões do horário (snapshots) */}
-              <select
-                className="app-select"
-                style={{ marginLeft: "0.5rem" }}
-                value={snapshotSelecionadoId ?? ""}
-                onChange={(e) =>
-                  setSnapshotSelecionadoId(e.target.value || null)
-                }
-              >
-                <option value="">
-                  Versões salvas ({snapshots.length})
-                </option>
-                {snapshots.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {new Date(s.timestamp).toLocaleString("pt-BR")} –{" "}
-                    {s.descricao}
-                  </option>
-                ))}
-              </select>
-              <button
-                className="button-primary"
-                style={{ marginLeft: "0.25rem" }}
-                onClick={handleSalvarSnapshot}
-              >
-                💾 Salvar versão
-              </button>
-              <button
-                className="button-danger"
-                style={{ marginLeft: "0.25rem", paddingInline: "0.7rem" }}
-                onClick={handleRestaurarSnapshot}
-              >
-                ⏪ Restaurar
-              </button>
+                  {/* Controle de versões do horário (snapshots) */}
+                  <select
+                    className="app-select"
+                    style={{ marginLeft: "0.5rem" }}
+                    value={snapshotSelecionadoId ?? ""}
+                    onChange={(e) =>
+                      setSnapshotSelecionadoId(e.target.value || null)
+                    }
+                  >
+                    <option value="">
+                      Versões salvas ({snapshots.length})
+                    </option>
+                    {snapshots.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {new Date(s.timestamp).toLocaleString("pt-BR")} –{" "}
+                        {s.descricao}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    className="button-primary"
+                    style={{ marginLeft: "0.25rem" }}
+                    onClick={handleSalvarSnapshot}
+                  >
+                    💾 Salvar versão
+                  </button>
+                  <button
+                    className="button-danger"
+                    style={{ marginLeft: "0.25rem", paddingInline: "0.7rem" }}
+                    onClick={handleRestaurarSnapshot}
+                  >
+                    ⏪ Restaurar
+                  </button>
+                </>
+              )}
             </div>
           </div>
           )}
@@ -2166,13 +2162,15 @@ function App() {
 
               {/* Ações */}
               <div className="app-actions" style={{ gap: "0.5rem" }}>
-                <button
-                  className="button-danger"
-                  onClick={limparHorarioGrupoAtual}
-                >
-                  <span className="button-danger-icon">🧹</span>
-                  Limpar horário do grupo
-                </button>
+                {podeEditarAgora && (
+                  <button
+                    className="button-danger"
+                    onClick={limparHorarioGrupoAtual}
+                  >
+                    <span className="button-danger-icon">🧹</span>
+                    Limpar horário do grupo
+                  </button>
+                )}
 
                 <button
                   className="button-danger"
@@ -2541,7 +2539,7 @@ function App() {
           )}
 
           {/* ---------- ABA CADASTRO POR TURMA / PROFESSOR (editável) ---------- */}
-          {aba === "cadastro" && (
+          {aba === "cadastro" && podeEditarAgora && (
             <section className="cadastro-container">
               <h2 style={{ fontSize: "1rem" }}>
                 Cadastro de horário por turma e professor
@@ -2967,6 +2965,7 @@ function App() {
           {aba === "historico" && (
             <HistoricoAlteracoes
               horariosAtuais={horarios}
+              podeEditar={podeEditarAgora}
               onRestaurarSnapshot={(dados) => {
                 setHorarios(dados);
                 alert("Horário restaurado! Recarregue a página para ver as mudanças.");
@@ -2978,6 +2977,7 @@ function App() {
           {aba === "exportacao" && (
             <ExportacaoImportacao
               horarios={horarios}
+              podeEditar={podeEditarAgora}
               onHorariosAtualizados={() => {
                 carregarHorarios().then(setHorarios).catch(console.error);
               }}
@@ -2985,7 +2985,7 @@ function App() {
           )}
 
           {/* ---------- ABA CONFIGURAÇÃO DA ESCOLA ---------- */}
-          {aba === "configuracao" && (
+          {aba === "configuracao" && podeEditarAgora && (
             <ConfiguracaoEscola
               onConfigChange={() => {
                 // Atualiza grupo selecionado se o atual não existir mais
@@ -3000,11 +3000,14 @@ function App() {
           )}
 
           {/* ---------- ABA PROFESSORES ---------- */}
-          {aba === "professores" && (
+          {aba === "professores" && podeEditarAgora && (
             <Professores
               onProfessoresChange={() => setProfessores(carregarProfessores())}
             />
           )}
+
+          {/* ---------- ABA USUÁRIOS ---------- */}
+          {aba === "usuarios" && podeEditarAgora && <Usuarios />}
         </div>
       </main>
 
