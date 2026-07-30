@@ -1,4 +1,4 @@
-import db from "./database.js";
+import pool from "./database.js";
 import crypto from "crypto";
 
 // Gera um hash simples da senha (em produção, use bcrypt)
@@ -18,7 +18,7 @@ function validarEmail(email) {
 }
 
 // Cadastrar novo usuário
-export function cadastrarUsuario(email, nome, senha, perfil) {
+export async function cadastrarUsuario(email, nome, senha, perfil) {
   if (!validarEmail(email)) {
     throw new Error("Email inválido");
   }
@@ -46,29 +46,24 @@ export function cadastrarUsuario(email, nome, senha, perfil) {
   try {
     const senhaHash = hashSenha(senha);
     const agora = new Date().toISOString();
+    const emailNormalizado = email.toLowerCase().trim();
+    const nomeNormalizado = nome.trim();
 
-    const resultado = db
-      .prepare(
-        `INSERT INTO usuarios (email, nome, senha_hash, perfil, criado_em, atualizado_em)
-         VALUES (?, ?, ?, ?, ?, ?)`
-      )
-      .run(
-        email.toLowerCase().trim(),
-        nome.trim(),
-        senhaHash,
-        perfil,
-        agora,
-        agora
-      );
+    const { rows } = await pool.query(
+      `INSERT INTO usuarios (email, nome, senha_hash, perfil, criado_em, atualizado_em)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       RETURNING id`,
+      [emailNormalizado, nomeNormalizado, senhaHash, perfil, agora, agora]
+    );
 
     return {
-      id: resultado.lastInsertRowid,
-      email: email.toLowerCase().trim(),
-      nome: nome.trim(),
+      id: rows[0].id,
+      email: emailNormalizado,
+      nome: nomeNormalizado,
       perfil,
     };
   } catch (error) {
-    if (error.code === "SQLITE_CONSTRAINT_UNIQUE") {
+    if (error.code === "23505") {
       throw new Error("Email já cadastrado");
     }
     throw error;
@@ -76,10 +71,12 @@ export function cadastrarUsuario(email, nome, senha, perfil) {
 }
 
 // Fazer login
-export function fazerLogin(email, senha) {
-  const usuario = db
-    .prepare("SELECT * FROM usuarios WHERE email = ?")
-    .get(email.toLowerCase().trim());
+export async function fazerLogin(email, senha) {
+  const { rows } = await pool.query(
+    "SELECT * FROM usuarios WHERE email = $1",
+    [email.toLowerCase().trim()]
+  );
+  const usuario = rows[0];
 
   if (!usuario) {
     throw new Error("Email ou senha incorretos");
@@ -95,10 +92,11 @@ export function fazerLogin(email, senha) {
   const agora = new Date();
   const expiraEm = new Date(agora.getTime() + 30 * 24 * 60 * 60 * 1000); // 30 dias
 
-  db.prepare(
+  await pool.query(
     `INSERT INTO sessoes (usuario_id, token, criado_em, expira_em)
-     VALUES (?, ?, ?, ?)`
-  ).run(usuario.id, token, agora.toISOString(), expiraEm.toISOString());
+     VALUES ($1, $2, $3, $4)`,
+    [usuario.id, token, agora.toISOString(), expiraEm.toISOString()]
+  );
 
   return {
     token,
@@ -112,15 +110,15 @@ export function fazerLogin(email, senha) {
 }
 
 // Validar token de sessão
-export function validarSessao(token) {
-  const sessao = db
-    .prepare(
-      `SELECT s.*, u.id as usuario_id, u.email, u.nome, u.perfil
-       FROM sessoes s
-       JOIN usuarios u ON s.usuario_id = u.id
-       WHERE s.token = ? AND s.expira_em > datetime('now')`
-    )
-    .get(token);
+export async function validarSessao(token) {
+  const { rows } = await pool.query(
+    `SELECT s.*, u.id as usuario_id, u.email, u.nome, u.perfil
+     FROM sessoes s
+     JOIN usuarios u ON s.usuario_id = u.id
+     WHERE s.token = $1 AND s.expira_em > $2`,
+    [token, new Date().toISOString()]
+  );
+  const sessao = rows[0];
 
   if (!sessao) {
     return null;
@@ -135,22 +133,25 @@ export function validarSessao(token) {
 }
 
 // Fazer logout (remover sessão)
-export function fazerLogout(token) {
-  db.prepare("DELETE FROM sessoes WHERE token = ?").run(token);
+export async function fazerLogout(token) {
+  await pool.query("DELETE FROM sessoes WHERE token = $1", [token]);
 }
 
 // Limpar sessões expiradas
-export function limparSessoesExpiradas() {
-  db.prepare("DELETE FROM sessoes WHERE expira_em < datetime('now')").run();
+export async function limparSessoesExpiradas() {
+  await pool.query("DELETE FROM sessoes WHERE expira_em < $1", [
+    new Date().toISOString(),
+  ]);
 }
 
 // Buscar usuário por email
-export function buscarUsuarioPorEmail(email) {
-  const usuario = db
-    .prepare("SELECT id, email, nome, perfil FROM usuarios WHERE email = ?")
-    .get(email.toLowerCase().trim());
+export async function buscarUsuarioPorEmail(email) {
+  const { rows } = await pool.query(
+    "SELECT id, email, nome, perfil FROM usuarios WHERE email = $1",
+    [email.toLowerCase().trim()]
+  );
 
-  return usuario || null;
+  return rows[0] || null;
 }
 
 // Perfis que podem cadastrar/editar horários e usuários. Coordenação, GOE,
@@ -162,19 +163,19 @@ export function podeEditarHorarios(perfil) {
 }
 
 // Lista todos os usuários (sem o hash da senha), para a tela de gestão de usuários
-export function listarUsuarios() {
-  return db
-    .prepare(
-      "SELECT id, email, nome, perfil, criado_em FROM usuarios ORDER BY nome COLLATE NOCASE"
-    )
-    .all();
+export async function listarUsuarios() {
+  const { rows } = await pool.query(
+    "SELECT id, email, nome, perfil, criado_em FROM usuarios ORDER BY LOWER(nome)"
+  );
+  return rows;
 }
 
 // Remove um usuário cadastrado
-export function removerUsuario(id) {
-  const resultado = db.prepare("DELETE FROM usuarios WHERE id = ?").run(id);
-  if (resultado.changes === 0) {
+export async function removerUsuario(id) {
+  const resultado = await pool.query("DELETE FROM usuarios WHERE id = $1", [
+    id,
+  ]);
+  if (resultado.rowCount === 0) {
     throw new Error("Usuário não encontrado");
   }
 }
-

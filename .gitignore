@@ -28,3 +28,11 @@ data/
 *.db
 *.db-shm
 *.db-wal
+
+# Variáveis de ambiente
+.env
+.env.*
+!.env.example
+
+# Vercel
+.vercel
