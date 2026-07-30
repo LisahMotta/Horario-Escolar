@@ -31,6 +31,20 @@ podem cadastrar/editar horários e usuários — os demais perfis têm acesso
 somente de consulta. Não existe tela de troca de senha ainda, então recomenda-se
 cuidado com esse acesso padrão.
 
+### Perdeu o acesso de Direção?
+
+A conta padrão só é criada se o banco estiver vazio (então, se você já tinha
+um banco de um uso anterior do app, ela não é criada automaticamente). Para
+criar ou resetar a senha de uma conta de Direção sem apagar nenhum outro
+dado, rode:
+
+```bash
+node server/criar-admin.js seuemail@escola.com suasenha "Seu Nome"
+```
+
+Se o email já existir, só a senha é atualizada (e o perfil é garantido como
+Direção). Se não existir, uma conta nova é criada.
+
 Currently, two official plugins are available:
 
 - [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
