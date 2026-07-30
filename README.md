@@ -39,8 +39,13 @@ criar ou resetar a senha de uma conta de Direção sem apagar nenhum outro
 dado, rode:
 
 ```bash
-node server/criar-admin.js seuemail@escola.com suasenha "Seu Nome"
+npm run criar-admin -- seuemail@escola.com suasenha "Seu Nome"
 ```
+
+(Use `npm run criar-admin`, e não `node server/criar-admin.js` diretamente — se você
+tiver mais de uma versão do Node.js instalada, rodar via `npm run` garante que é usada
+a mesma versão que os outros scripts do projeto (`npm run dev:full`), evitando o erro
+`NODE_MODULE_VERSION` incompatível do better-sqlite3.)
 
 Se o email já existir, só a senha é atualizada (e o perfil é garantido como
 Direção). Se não existir, uma conta nova é criada.
