@@ -138,7 +138,19 @@ async function seedUsuarioPadrao() {
   );
 }
 
-await inicializarBanco();
-await seedUsuarioPadrao();
+// Guarda o erro de inicialização (se houver) em vez de deixá-lo derrubar o
+// import do módulo inteiro. Em ambiente serverless, um erro não tratado
+// aqui faria a função falhar em TODA rota (até em rotas que nem usam banco),
+// retornando um 500 genérico sem nenhuma pista do problema real. Guardando
+// o erro, expomos um diagnóstico legível em GET /api/health.
+export let erroInicializacao = null;
+
+try {
+  await inicializarBanco();
+  await seedUsuarioPadrao();
+} catch (error) {
+  erroInicializacao = error;
+  console.error("Falha ao inicializar o banco de dados:", error);
+}
 
 export default pool;
