@@ -14,9 +14,10 @@
   },
   "dependencies": {
     "@phosphor-icons/react": "^2.1.10",
-    "better-sqlite3": "^12.4.1",
     "cors": "^2.8.5",
+    "dotenv": "^17.4.2",
     "express": "^4.21.2",
+    "pg": "^8.22.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"
   },

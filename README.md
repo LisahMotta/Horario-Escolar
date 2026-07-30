@@ -4,7 +4,15 @@ This template provides a minimal setup to get React working in Vite with HMR and
 
 ## Como rodar o projeto
 
-Este app tem dois processos: o frontend (Vite) e o backend (Express + SQLite). Os dois precisam estar rodando ao mesmo tempo, senão as chamadas de API falham com `ERR_CONNECTION_REFUSED`.
+Este app tem dois processos: o frontend (Vite) e o backend (Express + Postgres/Supabase). Os dois precisam estar rodando ao mesmo tempo, senão as chamadas de API falham com `ERR_CONNECTION_REFUSED`.
+
+Antes de rodar pela primeira vez, configure a conexão com o banco:
+
+```bash
+cp .env.example .env
+# edite o .env e cole a connection string do seu projeto Supabase
+# (Project Settings → Database → Connection string → URI)
+```
 
 ```bash
 npm install
@@ -42,13 +50,45 @@ dado, rode:
 npm run criar-admin -- seuemail@escola.com suasenha "Seu Nome"
 ```
 
-(Use `npm run criar-admin`, e não `node server/criar-admin.js` diretamente — se você
-tiver mais de uma versão do Node.js instalada, rodar via `npm run` garante que é usada
-a mesma versão que os outros scripts do projeto (`npm run dev:full`), evitando o erro
-`NODE_MODULE_VERSION` incompatível do better-sqlite3.)
-
 Se o email já existir, só a senha é atualizada (e o perfil é garantido como
 Direção). Se não existir, uma conta nova é criada.
+
+## Deploy (Vercel + Supabase)
+
+O backend (Express) roda como uma função serverless na Vercel, sob `/api`, e o
+banco é um Postgres hospedado no Supabase — não há mais SQLite em produção.
+
+### 1. Banco de dados (Supabase)
+
+1. No seu projeto Supabase, vá em **Project Settings → Database → Connection string**.
+2. Para uso em funções serverless, copie a string de **Connection pooling**
+   (modo *Transaction*, porta `6543`) — evita esgotar o limite de conexões do
+   Postgres quando a Vercel escala o backend em várias instâncias.
+3. Guarde essa string; ela vira a variável `DATABASE_URL` no próximo passo.
+
+O schema (tabelas, índices) e a conta padrão de Direção são criados
+automaticamente na primeira requisição que a função recebe — não é preciso
+rodar nenhuma migração manual.
+
+### 2. Deploy (Vercel)
+
+1. Importe este repositório em [vercel.com/new](https://vercel.com/new). A
+   Vercel detecta automaticamente o projeto Vite (build `vite build`, saída
+   em `dist/`) e a função serverless em `api/index.js`.
+2. Em **Project Settings → Environment Variables**, adicione:
+   - `DATABASE_URL` = a connection string do Supabase (passo anterior).
+3. Faça o deploy. Depois de pronto, acesse a URL da Vercel e entre com a
+   conta padrão (`direcao@escola.com` / `trocar123`) para cadastrar os
+   demais usuários.
+
+### Rodando `criar-admin` contra o Supabase de produção
+
+Se precisar criar/resetar uma conta de Direção diretamente no banco de
+produção (Supabase), rode localmente com a `DATABASE_URL` de produção:
+
+```bash
+DATABASE_URL="sua-connection-string-do-supabase" npm run criar-admin -- email@escola.com suasenha "Nome"
+```
 
 Currently, two official plugins are available:
 

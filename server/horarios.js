@@ -1,8 +1,8 @@
-import db from "./database.js";
+import pool from "./database.js";
 import { registrarAlteracao } from "./historico.js";
 
 // Salvar ou atualizar horário
-export function salvarHorario(
+export async function salvarHorario(
   grupoId,
   dia,
   slotId,
@@ -14,28 +14,16 @@ export function salvarHorario(
   const agora = new Date().toISOString();
 
   // Tenta atualizar primeiro
-  const existente = db
-    .prepare(
-      "SELECT * FROM horarios WHERE grupo_id = ? AND dia = ? AND slot_id = ?"
-    )
-    .get(grupoId, dia, slotId);
+  const { rows } = await pool.query(
+    "SELECT * FROM horarios WHERE grupo_id = $1 AND dia = $2 AND slot_id = $3",
+    [grupoId, dia, slotId]
+  );
+  const existente = rows[0];
 
   if (existente) {
-    // Registra alterações no histórico
-    const valorAnterior = {
-      disciplina: existente.disciplina,
-      professor: existente.professor,
-      turma: existente.turma,
-    };
-    const valorNovo = {
-      disciplina: disciplina || null,
-      professor: professor || null,
-      turma: turma || null,
-    };
-
-    // Registra cada campo alterado
+    // Registra cada campo alterado no histórico
     if (existente.disciplina !== (disciplina || null)) {
-      registrarAlteracao({
+      await registrarAlteracao({
         tipoAlteracao: "atualizar",
         tabela: "horarios",
         registroId: existente.id,
@@ -51,7 +39,7 @@ export function salvarHorario(
     }
 
     if (existente.professor !== (professor || null)) {
-      registrarAlteracao({
+      await registrarAlteracao({
         tipoAlteracao: "atualizar",
         tabela: "horarios",
         registroId: existente.id,
@@ -67,7 +55,7 @@ export function salvarHorario(
     }
 
     if (existente.turma !== (turma || null)) {
-      registrarAlteracao({
+      await registrarAlteracao({
         tipoAlteracao: "atualizar",
         tabela: "horarios",
         registroId: existente.id,
@@ -83,22 +71,22 @@ export function salvarHorario(
     }
 
     // Atualiza
-    db.prepare(
-      `UPDATE horarios 
-       SET disciplina = ?, professor = ?, turma = ?, usuario_id = ?, atualizado_em = ?
-       WHERE id = ?`
-    ).run(disciplina || null, professor || null, turma || null, usuarioId, agora, existente.id);
+    await pool.query(
+      `UPDATE horarios
+       SET disciplina = $1, professor = $2, turma = $3, usuario_id = $4, atualizado_em = $5
+       WHERE id = $6`,
+      [disciplina || null, professor || null, turma || null, usuarioId, agora, existente.id]
+    );
 
     return { id: existente.id, criado: false };
   } else {
     // Cria novo
-    const resultado = db
-      .prepare(
-        `INSERT INTO horarios 
-         (grupo_id, dia, slot_id, disciplina, professor, turma, usuario_id, criado_em, atualizado_em)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-      )
-      .run(
+    const { rows: insertRows } = await pool.query(
+      `INSERT INTO horarios
+       (grupo_id, dia, slot_id, disciplina, professor, turma, usuario_id, criado_em, atualizado_em)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+       RETURNING id`,
+      [
         grupoId,
         dia,
         slotId,
@@ -107,14 +95,16 @@ export function salvarHorario(
         turma || null,
         usuarioId,
         agora,
-        agora
-      );
+        agora,
+      ]
+    );
+    const novoId = insertRows[0].id;
 
     // Registra criação no histórico
-    registrarAlteracao({
+    await registrarAlteracao({
       tipoAlteracao: "criar",
       tabela: "horarios",
-      registroId: resultado.lastInsertRowid,
+      registroId: novoId,
       grupoId,
       dia,
       slotId,
@@ -125,24 +115,23 @@ export function salvarHorario(
       detalhes: `Horário criado: ${disciplina || ""} - ${professor || ""} - ${turma || ""}`,
     });
 
-    return { id: resultado.lastInsertRowid, criado: true };
+    return { id: novoId, criado: true };
   }
 }
 
 // Limpar horário (definir como null)
-export function limparHorario(grupoId, dia, slotId, usuarioId) {
+export async function limparHorario(grupoId, dia, slotId, usuarioId) {
   const agora = new Date().toISOString();
 
   // Busca o horário antes de limpar para registrar no histórico
-  const existente = db
-    .prepare(
-      "SELECT * FROM horarios WHERE grupo_id = ? AND dia = ? AND slot_id = ?"
-    )
-    .get(grupoId, dia, slotId);
+  const { rows } = await pool.query(
+    "SELECT * FROM horarios WHERE grupo_id = $1 AND dia = $2 AND slot_id = $3",
+    [grupoId, dia, slotId]
+  );
+  const existente = rows[0];
 
   if (existente && (existente.disciplina || existente.professor || existente.turma)) {
-    // Registra no histórico
-    registrarAlteracao({
+    await registrarAlteracao({
       tipoAlteracao: "limpar",
       tabela: "horarios",
       registroId: existente.id,
@@ -161,59 +150,59 @@ export function limparHorario(grupoId, dia, slotId, usuarioId) {
     });
   }
 
-  db.prepare(
-    `UPDATE horarios 
-     SET disciplina = NULL, professor = NULL, turma = NULL, usuario_id = ?, atualizado_em = ?
-     WHERE grupo_id = ? AND dia = ? AND slot_id = ?`
-  ).run(usuarioId, agora, grupoId, dia, slotId);
+  await pool.query(
+    `UPDATE horarios
+     SET disciplina = NULL, professor = NULL, turma = NULL, usuario_id = $1, atualizado_em = $2
+     WHERE grupo_id = $3 AND dia = $4 AND slot_id = $5`,
+    [usuarioId, agora, grupoId, dia, slotId]
+  );
 }
 
 // Buscar todos os horários de um grupo
-export function buscarHorariosPorGrupo(grupoId) {
-  const horarios = db
-    .prepare(
-      `SELECT * FROM horarios 
-       WHERE grupo_id = ? 
-       ORDER BY dia, slot_id`
-    )
-    .all(grupoId);
+export async function buscarHorariosPorGrupo(grupoId) {
+  const { rows } = await pool.query(
+    `SELECT * FROM horarios
+     WHERE grupo_id = $1
+     ORDER BY dia, slot_id`,
+    [grupoId]
+  );
 
-  return horarios;
+  return rows;
 }
 
 // Buscar todos os horários
-export function buscarTodosHorarios() {
-  const horarios = db
-    .prepare("SELECT * FROM horarios ORDER BY grupo_id, dia, slot_id")
-    .all();
+export async function buscarTodosHorarios() {
+  const { rows } = await pool.query(
+    "SELECT * FROM horarios ORDER BY grupo_id, dia, slot_id"
+  );
 
-  return horarios;
+  return rows;
 }
 
 // Buscar horário específico
-export function buscarHorario(grupoId, dia, slotId) {
-  const horario = db
-    .prepare(
-      "SELECT * FROM horarios WHERE grupo_id = ? AND dia = ? AND slot_id = ?"
-    )
-    .get(grupoId, dia, slotId);
+export async function buscarHorario(grupoId, dia, slotId) {
+  const { rows } = await pool.query(
+    "SELECT * FROM horarios WHERE grupo_id = $1 AND dia = $2 AND slot_id = $3",
+    [grupoId, dia, slotId]
+  );
 
-  return horario || null;
+  return rows[0] || null;
 }
 
 // Limpar todos os horários de um grupo
-export function limparGrupo(grupoId, usuarioId) {
+export async function limparGrupo(grupoId, usuarioId) {
   const agora = new Date().toISOString();
 
   // Busca todos os horários do grupo antes de limpar
-  const horariosGrupo = db
-    .prepare("SELECT * FROM horarios WHERE grupo_id = ?")
-    .all(grupoId);
+  const { rows: horariosGrupo } = await pool.query(
+    "SELECT * FROM horarios WHERE grupo_id = $1",
+    [grupoId]
+  );
 
   // Registra cada horário limpo no histórico
-  horariosGrupo.forEach((h) => {
+  for (const h of horariosGrupo) {
     if (h.disciplina || h.professor || h.turma) {
-      registrarAlteracao({
+      await registrarAlteracao({
         tipoAlteracao: "limpar",
         tabela: "horarios",
         registroId: h.id,
@@ -231,13 +220,14 @@ export function limparGrupo(grupoId, usuarioId) {
         detalhes: `Grupo limpo: ${h.disciplina || ""} - ${h.professor || ""} - ${h.turma || ""}`,
       });
     }
-  });
+  }
 
-  db.prepare(
-    `UPDATE horarios 
-     SET disciplina = NULL, professor = NULL, turma = NULL, usuario_id = ?, atualizado_em = ?
-     WHERE grupo_id = ?`
-  ).run(usuarioId, agora, grupoId);
+  await pool.query(
+    `UPDATE horarios
+     SET disciplina = NULL, professor = NULL, turma = NULL, usuario_id = $1, atualizado_em = $2
+     WHERE grupo_id = $3`,
+    [usuarioId, agora, grupoId]
+  );
 }
 
 // Formatar horários no formato esperado pelo frontend
@@ -266,4 +256,3 @@ export function formatarHorariosParaFrontend(horarios) {
 
   return resultado;
 }
-

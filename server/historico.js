@@ -1,7 +1,7 @@
-import db from "./database.js";
+import pool, { toPg } from "./database.js";
 
 // Registra uma alteração no histórico
-export function registrarAlteracao({
+export async function registrarAlteracao({
   tipoAlteracao,
   tabela,
   registroId,
@@ -16,29 +16,30 @@ export function registrarAlteracao({
 }) {
   const timestamp = new Date().toISOString();
 
-  db.prepare(
-    `INSERT INTO historico_alteracoes 
-     (tipo_alteracao, tabela, registro_id, grupo_id, dia, slot_id, 
+  await pool.query(
+    `INSERT INTO historico_alteracoes
+     (tipo_alteracao, tabela, registro_id, grupo_id, dia, slot_id,
       campo_alterado, valor_anterior, valor_novo, usuario_id, timestamp, detalhes)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-  ).run(
-    tipoAlteracao,
-    tabela,
-    registroId || null,
-    grupoId || null,
-    dia || null,
-    slotId || null,
-    campoAlterado || null,
-    valorAnterior ? JSON.stringify(valorAnterior) : null,
-    valorNovo ? JSON.stringify(valorNovo) : null,
-    usuarioId,
-    timestamp,
-    detalhes || null
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+    [
+      tipoAlteracao,
+      tabela,
+      registroId || null,
+      grupoId || null,
+      dia || null,
+      slotId || null,
+      campoAlterado || null,
+      valorAnterior ? JSON.stringify(valorAnterior) : null,
+      valorNovo ? JSON.stringify(valorNovo) : null,
+      usuarioId,
+      timestamp,
+      detalhes || null,
+    ]
   );
 }
 
 // Buscar histórico de alterações
-export function buscarHistorico(filtros = {}) {
+export async function buscarHistorico(filtros = {}) {
   let query = `
     SELECT h.*, u.nome as usuario_nome, u.perfil as usuario_perfil
     FROM historico_alteracoes h
@@ -67,6 +68,11 @@ export function buscarHistorico(filtros = {}) {
     params.push(filtros.tipoAlteracao);
   }
 
+  if (filtros.slotId !== undefined) {
+    query += " AND h.slot_id = ?";
+    params.push(filtros.slotId);
+  }
+
   if (filtros.dataInicio) {
     query += " AND h.timestamp >= ?";
     params.push(filtros.dataInicio);
@@ -84,9 +90,9 @@ export function buscarHistorico(filtros = {}) {
     params.push(filtros.limite);
   }
 
-  const historico = db.prepare(query).all(...params);
+  const { rows } = await pool.query(toPg(query), params);
 
-  return historico.map((h) => ({
+  return rows.map((h) => ({
     id: h.id,
     tipoAlteracao: h.tipo_alteracao,
     tabela: h.tabela,
@@ -108,17 +114,17 @@ export function buscarHistorico(filtros = {}) {
 }
 
 // Buscar histórico de um horário específico
-export function buscarHistoricoHorario(grupoId, dia, slotId) {
-  return buscarHistorico({ grupoId, dia, slotId: slotId.toString() });
+export async function buscarHistoricoHorario(grupoId, dia, slotId) {
+  return buscarHistorico({ grupoId, dia, slotId });
 }
 
 // Buscar estatísticas do histórico
-export function buscarEstatisticasHistorico(filtros = {}) {
+export async function buscarEstatisticasHistorico(filtros = {}) {
   let query = `
-    SELECT 
-      COUNT(*) as total_alteracoes,
-      COUNT(DISTINCT h.usuario_id) as total_usuarios,
-      COUNT(DISTINCT h.grupo_id) as total_grupos,
+    SELECT
+      COUNT(*)::int as total_alteracoes,
+      COUNT(DISTINCT h.usuario_id)::int as total_usuarios,
+      COUNT(DISTINCT h.grupo_id)::int as total_grupos,
       MIN(h.timestamp) as primeira_alteracao,
       MAX(h.timestamp) as ultima_alteracao
     FROM historico_alteracoes h
@@ -136,11 +142,12 @@ export function buscarEstatisticasHistorico(filtros = {}) {
     params.push(filtros.dataFim);
   }
 
-  const stats = db.prepare(query).get(...params);
+  const { rows: statsRows } = await pool.query(toPg(query), params);
+  const stats = statsRows[0];
 
   // Alterações por tipo
   let queryTipos = `
-    SELECT tipo_alteracao, COUNT(*) as quantidade
+    SELECT tipo_alteracao, COUNT(*)::int as quantidade
     FROM historico_alteracoes
     WHERE 1=1
   `;
@@ -158,11 +165,11 @@ export function buscarEstatisticasHistorico(filtros = {}) {
 
   queryTipos += " GROUP BY tipo_alteracao";
 
-  const tipos = db.prepare(queryTipos).all(...paramsTipos);
+  const { rows: tipos } = await pool.query(toPg(queryTipos), paramsTipos);
 
   // Alterações por usuário
   let queryUsuarios = `
-    SELECT u.nome, u.perfil, COUNT(*) as quantidade
+    SELECT u.nome, u.perfil, COUNT(*)::int as quantidade
     FROM historico_alteracoes h
     JOIN usuarios u ON h.usuario_id = u.id
     WHERE 1=1
@@ -179,9 +186,9 @@ export function buscarEstatisticasHistorico(filtros = {}) {
     paramsUsuarios.push(filtros.dataFim);
   }
 
-  queryUsuarios += " GROUP BY h.usuario_id ORDER BY quantidade DESC LIMIT 10";
+  queryUsuarios += " GROUP BY h.usuario_id, u.nome, u.perfil ORDER BY quantidade DESC LIMIT 10";
 
-  const usuarios = db.prepare(queryUsuarios).all(...paramsUsuarios);
+  const { rows: usuarios } = await pool.query(toPg(queryUsuarios), paramsUsuarios);
 
   return {
     totalAlteracoes: stats.total_alteracoes || 0,
@@ -202,18 +209,18 @@ export function buscarEstatisticasHistorico(filtros = {}) {
 }
 
 // Criar snapshot (versão completa)
-export function criarSnapshot(nome, descricao, dados, usuarioId) {
+export async function criarSnapshot(nome, descricao, dados, usuarioId) {
   const timestamp = new Date().toISOString();
 
-  const resultado = db
-    .prepare(
-      `INSERT INTO snapshots (nome, descricao, dados, usuario_id, criado_em)
-       VALUES (?, ?, ?, ?, ?)`
-    )
-    .run(nome, descricao || null, JSON.stringify(dados), usuarioId, timestamp);
+  const { rows } = await pool.query(
+    `INSERT INTO snapshots (nome, descricao, dados, usuario_id, criado_em)
+     VALUES ($1, $2, $3, $4, $5)
+     RETURNING id`,
+    [nome, descricao || null, JSON.stringify(dados), usuarioId, timestamp]
+  );
 
   return {
-    id: resultado.lastInsertRowid,
+    id: rows[0].id,
     nome,
     descricao,
     criadoEm: timestamp,
@@ -221,18 +228,17 @@ export function criarSnapshot(nome, descricao, dados, usuarioId) {
 }
 
 // Buscar snapshots
-export function buscarSnapshots(limite = 50) {
-  const snapshots = db
-    .prepare(
-      `SELECT s.*, u.nome as usuario_nome, u.perfil as usuario_perfil
-       FROM snapshots s
-       JOIN usuarios u ON s.usuario_id = u.id
-       ORDER BY s.criado_em DESC
-       LIMIT ?`
-    )
-    .all(limite);
+export async function buscarSnapshots(limite = 50) {
+  const { rows } = await pool.query(
+    `SELECT s.*, u.nome as usuario_nome, u.perfil as usuario_perfil
+     FROM snapshots s
+     JOIN usuarios u ON s.usuario_id = u.id
+     ORDER BY s.criado_em DESC
+     LIMIT $1`,
+    [limite]
+  );
 
-  return snapshots.map((s) => ({
+  return rows.map((s) => ({
     id: s.id,
     nome: s.nome,
     descricao: s.descricao,
@@ -247,15 +253,15 @@ export function buscarSnapshots(limite = 50) {
 }
 
 // Buscar snapshot específico
-export function buscarSnapshot(id) {
-  const snapshot = db
-    .prepare(
-      `SELECT s.*, u.nome as usuario_nome, u.perfil as usuario_perfil
-       FROM snapshots s
-       JOIN usuarios u ON s.usuario_id = u.id
-       WHERE s.id = ?`
-    )
-    .get(id);
+export async function buscarSnapshot(id) {
+  const { rows } = await pool.query(
+    `SELECT s.*, u.nome as usuario_nome, u.perfil as usuario_perfil
+     FROM snapshots s
+     JOIN usuarios u ON s.usuario_id = u.id
+     WHERE s.id = $1`,
+    [id]
+  );
+  const snapshot = rows[0];
 
   if (!snapshot) return null;
 
@@ -274,7 +280,6 @@ export function buscarSnapshot(id) {
 }
 
 // Deletar snapshot
-export function deletarSnapshot(id) {
-  db.prepare("DELETE FROM snapshots WHERE id = ?").run(id);
+export async function deletarSnapshot(id) {
+  await pool.query("DELETE FROM snapshots WHERE id = $1", [id]);
 }
-
