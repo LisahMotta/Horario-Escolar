@@ -1,6 +1,6 @@
 import { useState } from "react";
-import type { ProfessorInfo } from "./professores";
-import { carregarProfessores, salvarProfessores } from "./professores";
+import type { ProfessorInfo } from "./professoresStore";
+import { carregarProfessores, salvarProfessores } from "./professoresStore";
 import { getDiasSemana } from "./scheduleConfig";
 
 interface ProfessoresProps {

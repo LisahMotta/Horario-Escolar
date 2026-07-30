@@ -21,8 +21,8 @@ import {
 import type { HorarioCompleto, HorariosPorGrupo } from "./types";
 import { ConfiguracaoEscola } from "./ConfiguracaoEscola";
 import { Professores } from "./Professores";
-import type { ProfessorInfo } from "./professores";
-import { carregarProfessores } from "./professores";
+import type { ProfessorInfo } from "./professoresStore";
+import { carregarProfessores } from "./professoresStore";
 import { AuthScreen } from "./AuthScreen";
 import { HistoricoAlteracoes } from "./HistoricoAlteracoes";
 import { Dashboard } from "./Dashboard";
