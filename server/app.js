@@ -5,12 +5,38 @@ import { fileURLToPath } from "url";
 import * as auth from "./auth.js";
 import * as horarios from "./horarios.js";
 import * as historico from "./historico.js";
-import pool from "./database.js";
+import pool, { erroInicializacao } from "./database.js";
 
 const app = express();
 
 app.use(cors());
 app.use(express.json());
+
+// Diagnóstico rápido da conexão com o banco, sem precisar acessar os logs
+// da Vercel: se a inicialização falhou (ex.: DATABASE_URL errada), o erro
+// real aparece aqui em vez de um 500 genérico em toda rota.
+app.get("/api/health", async (req, res) => {
+  if (erroInicializacao) {
+    return res.status(500).json({
+      ok: false,
+      etapa: "inicializacao",
+      erro: erroInicializacao.message,
+      codigo: erroInicializacao.code || null,
+    });
+  }
+
+  try {
+    await pool.query("SELECT 1");
+    res.json({ ok: true });
+  } catch (error) {
+    res.status(500).json({
+      ok: false,
+      etapa: "consulta",
+      erro: error.message,
+      codigo: error.code || null,
+    });
+  }
+});
 
 // Middleware para verificar autenticação
 async function verificarAuth(req, res, next) {
