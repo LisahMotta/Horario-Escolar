@@ -153,3 +153,28 @@ export function buscarUsuarioPorEmail(email) {
   return usuario || null;
 }
 
+// Perfis que podem cadastrar/editar horários e usuários. Coordenação, GOE,
+// AOE e Professor têm acesso somente de consulta.
+export const PERFIS_EDITORES = ["direcao", "vice_direcao"];
+
+export function podeEditarHorarios(perfil) {
+  return PERFIS_EDITORES.includes(perfil);
+}
+
+// Lista todos os usuários (sem o hash da senha), para a tela de gestão de usuários
+export function listarUsuarios() {
+  return db
+    .prepare(
+      "SELECT id, email, nome, perfil, criado_em FROM usuarios ORDER BY nome COLLATE NOCASE"
+    )
+    .all();
+}
+
+// Remove um usuário cadastrado
+export function removerUsuario(id) {
+  const resultado = db.prepare("DELETE FROM usuarios WHERE id = ?").run(id);
+  if (resultado.changes === 0) {
+    throw new Error("Usuário não encontrado");
+  }
+}
+

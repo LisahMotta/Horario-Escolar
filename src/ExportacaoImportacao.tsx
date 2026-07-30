@@ -6,11 +6,13 @@ import { salvarHorario } from "./api";
 interface ExportacaoImportacaoProps {
   horarios: HorariosPorGrupo;
   onHorariosAtualizados: () => void;
+  podeEditar?: boolean;
 }
 
 export function ExportacaoImportacao({
   horarios,
   onHorariosAtualizados,
+  podeEditar = false,
 }: ExportacaoImportacaoProps) {
   const [processando, setProcessando] = useState(false);
   const [mensagem, setMensagem] = useState<string | null>(null);
@@ -583,6 +585,7 @@ export function ExportacaoImportacao({
       </div>
 
       {/* IMPORTAÇÕES */}
+      {podeEditar && (
       <div>
         <h3 style={{ fontSize: "1rem", marginBottom: "1rem", color: "#1f2937" }}>
           📥 Importar Dados
@@ -672,6 +675,7 @@ export function ExportacaoImportacao({
           </div>
         </div>
       </div>
+      )}
 
       {/* Informações */}
       <div style={{ marginTop: "2rem", padding: "1rem", background: "#eff6ff", borderRadius: "8px" }}>

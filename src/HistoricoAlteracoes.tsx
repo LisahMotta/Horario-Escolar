@@ -19,6 +19,7 @@ interface HistoricoAlteracoesProps {
   usuarioId?: number;
   horariosAtuais?: HorariosPorGrupo;
   onRestaurarSnapshot?: (dados: HorariosPorGrupo) => void;
+  podeEditar?: boolean;
 }
 
 const TIPOS_ALTERACAO_LABEL: Record<string, string> = {
@@ -39,6 +40,7 @@ export function HistoricoAlteracoes({
   usuarioId,
   horariosAtuais,
   onRestaurarSnapshot,
+  podeEditar = false,
 }: HistoricoAlteracoesProps) {
   const [historico, setHistorico] = useState<HistoricoAlteracao[]>([]);
   const [estatisticas, setEstatisticas] = useState<EstatisticasHistorico | null>(null);
@@ -385,44 +387,46 @@ export function HistoricoAlteracoes({
       {/* Conteúdo da aba Snapshots */}
       {aba === "snapshots" && (
         <div>
-          <div style={{ marginBottom: "1.5rem" }}>
-            <h3 style={{ fontSize: "1rem", marginBottom: "0.75rem" }}>
-              Criar Nova Versão
-            </h3>
-            <div style={{ display: "flex", gap: "0.5rem", marginBottom: "0.5rem" }}>
-              <input
-                className="cadastro-input"
-                value={nomeSnapshot}
-                onChange={(e) => setNomeSnapshot(e.target.value)}
-                placeholder="Nome da versão (ex: Horário de Março 2025)"
-                style={{ flex: 1 }}
-              />
-              <input
-                className="cadastro-input"
-                value={descricaoSnapshot}
-                onChange={(e) => setDescricaoSnapshot(e.target.value)}
-                placeholder="Descrição (opcional)"
-                style={{ flex: 1 }}
-              />
+          {podeEditar && (
+            <div style={{ marginBottom: "1.5rem" }}>
+              <h3 style={{ fontSize: "1rem", marginBottom: "0.75rem" }}>
+                Criar Nova Versão
+              </h3>
+              <div style={{ display: "flex", gap: "0.5rem", marginBottom: "0.5rem" }}>
+                <input
+                  className="cadastro-input"
+                  value={nomeSnapshot}
+                  onChange={(e) => setNomeSnapshot(e.target.value)}
+                  placeholder="Nome da versão (ex: Horário de Março 2025)"
+                  style={{ flex: 1 }}
+                />
+                <input
+                  className="cadastro-input"
+                  value={descricaoSnapshot}
+                  onChange={(e) => setDescricaoSnapshot(e.target.value)}
+                  placeholder="Descrição (opcional)"
+                  style={{ flex: 1 }}
+                />
+              </div>
+              <button
+                className="button-primary"
+                onClick={() => {
+                  if (!horariosAtuais) {
+                    alert("Horários atuais não disponíveis.");
+                    return;
+                  }
+                  handleCriarSnapshot(horariosAtuais);
+                }}
+                disabled={!horariosAtuais}
+                style={{ marginTop: "0.5rem" }}
+              >
+                💾 Criar Snapshot dos Horários Atuais
+              </button>
+              <p style={{ fontSize: "0.75rem", color: "#6b7280", marginTop: "0.5rem" }}>
+                💡 Cria uma versão completa do horário atual para restaurar depois.
+              </p>
             </div>
-            <button
-              className="button-primary"
-              onClick={() => {
-                if (!horariosAtuais) {
-                  alert("Horários atuais não disponíveis.");
-                  return;
-                }
-                handleCriarSnapshot(horariosAtuais);
-              }}
-              disabled={!horariosAtuais}
-              style={{ marginTop: "0.5rem" }}
-            >
-              💾 Criar Snapshot dos Horários Atuais
-            </button>
-            <p style={{ fontSize: "0.75rem", color: "#6b7280", marginTop: "0.5rem" }}>
-              💡 Cria uma versão completa do horário atual para restaurar depois.
-            </p>
-          </div>
+          )}
 
           {carregando ? (
             <p style={{ textAlign: "center", padding: "2rem" }}>Carregando...</p>
@@ -439,7 +443,7 @@ export function HistoricoAlteracoes({
                     <th>Descrição</th>
                     <th>Criado por</th>
                     <th>Data/Hora</th>
-                    <th>Ações</th>
+                    {podeEditar && <th>Ações</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -459,24 +463,26 @@ export function HistoricoAlteracoes({
                       <td style={{ fontSize: "0.8rem" }}>
                         {new Date(snapshot.criadoEm).toLocaleString("pt-BR")}
                       </td>
-                      <td>
-                        <div style={{ display: "flex", gap: "0.5rem" }}>
-                          <button
-                            className="button-primary"
-                            style={{ padding: "0.25rem 0.5rem", fontSize: "0.75rem" }}
-                            onClick={() => handleRestaurarSnapshot(snapshot.id)}
-                          >
-                            ⏪ Restaurar
-                          </button>
-                          <button
-                            className="button-danger"
-                            style={{ padding: "0.25rem 0.5rem", fontSize: "0.75rem" }}
-                            onClick={() => handleDeletarSnapshot(snapshot.id)}
-                          >
-                            🗑️ Deletar
-                          </button>
-                        </div>
-                      </td>
+                      {podeEditar && (
+                        <td>
+                          <div style={{ display: "flex", gap: "0.5rem" }}>
+                            <button
+                              className="button-primary"
+                              style={{ padding: "0.25rem 0.5rem", fontSize: "0.75rem" }}
+                              onClick={() => handleRestaurarSnapshot(snapshot.id)}
+                            >
+                              ⏪ Restaurar
+                            </button>
+                            <button
+                              className="button-danger"
+                              style={{ padding: "0.25rem 0.5rem", fontSize: "0.75rem" }}
+                              onClick={() => handleDeletarSnapshot(snapshot.id)}
+                            >
+                              🗑️ Deletar
+                            </button>
+                          </div>
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>

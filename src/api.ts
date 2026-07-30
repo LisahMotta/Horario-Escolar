@@ -49,14 +49,21 @@ export async function cadastrarUsuario(
   email: string,
   nome: string,
   senha: string,
-  perfil: string,
-  pin?: string
+  perfil: string
 ): Promise<Usuario> {
   const response = await fetchAPI("/api/auth/register", {
     method: "POST",
-    body: JSON.stringify({ email, nome, senha, perfil, pin }),
+    body: JSON.stringify({ email, nome, senha, perfil }),
   });
   return response.usuario;
+}
+
+export async function listarUsuarios(): Promise<Usuario[]> {
+  return await fetchAPI("/api/auth/usuarios");
+}
+
+export async function removerUsuario(id: number): Promise<void> {
+  await fetchAPI(`/api/auth/usuarios/${id}`, { method: "DELETE" });
 }
 
 export async function fazerLogin(

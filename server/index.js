@@ -30,6 +30,17 @@ function verificarAuth(req, res, next) {
   next();
 }
 
+// Middleware para exigir perfil de Direção ou Vice-direção (gestor).
+// Use sempre depois de verificarAuth, que popula req.usuario.
+function exigirGestor(req, res, next) {
+  if (!auth.podeEditarHorarios(req.usuario.perfil)) {
+    return res
+      .status(403)
+      .json({ error: "Apenas Direção ou Vice-direção podem realizar esta ação." });
+  }
+  next();
+}
+
 // Limpa sessões expiradas a cada hora
 setInterval(() => {
   auth.limparSessoesExpiradas();
@@ -77,29 +88,45 @@ app.post("/api/logs", (req, res) => {
 
 // ---------- Endpoints de Autenticação ----------
 
-// Cadastrar novo usuário
-app.post("/api/auth/register", async (req, res) => {
+// Cadastrar novo usuário — apenas Direção/Vice-direção podem cadastrar
+// outros usuários (coordenação, GOE, AOE, professores). Não existe mais
+// cadastro público: a primeira conta de Direção é criada automaticamente
+// (veja server/database.js).
+app.post("/api/auth/register", verificarAuth, exigirGestor, async (req, res) => {
   try {
-    const { email, nome, senha, perfil, pin } = req.body;
+    const { email, nome, senha, perfil } = req.body;
 
     if (!email || !nome || !senha || !perfil) {
       return res.status(400).json({ error: "Campos obrigatórios faltando" });
     }
 
-    // Validação de PIN para perfis administrativos (opcional)
-    if (perfil === "direcao" || perfil === "vice_direcao") {
-      if (pin) {
-        const PIN_DIRECAO = "1234";
-        const PIN_VICE_DIRECAO = "5678";
-        const pinCorreto = perfil === "direcao" ? PIN_DIRECAO : PIN_VICE_DIRECAO;
-        if (pin !== pinCorreto) {
-          return res.status(400).json({ error: "PIN incorreto" });
-        }
-      }
-    }
-
     const usuario = auth.cadastrarUsuario(email, nome, senha, perfil);
     res.status(201).json({ ok: true, usuario });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// Listar usuários cadastrados
+app.get("/api/auth/usuarios", verificarAuth, exigirGestor, (req, res) => {
+  try {
+    res.json(auth.listarUsuarios());
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Remover usuário cadastrado
+app.delete("/api/auth/usuarios/:id", verificarAuth, exigirGestor, (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    if (id === req.usuario.id) {
+      return res
+        .status(400)
+        .json({ error: "Você não pode remover sua própria conta." });
+    }
+    auth.removerUsuario(id);
+    res.json({ ok: true });
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
@@ -170,7 +197,7 @@ app.get("/api/horarios/:grupoId", verificarAuth, (req, res) => {
 });
 
 // Salvar horário
-app.post("/api/horarios", verificarAuth, (req, res) => {
+app.post("/api/horarios", verificarAuth, exigirGestor, (req, res) => {
   try {
     const { grupoId, dia, slotId, disciplina, professor, turma } = req.body;
 
@@ -195,7 +222,7 @@ app.post("/api/horarios", verificarAuth, (req, res) => {
 });
 
 // Limpar horário
-app.delete("/api/horarios", verificarAuth, (req, res) => {
+app.delete("/api/horarios", verificarAuth, exigirGestor, (req, res) => {
   try {
     const { grupoId, dia, slotId } = req.body;
 
@@ -211,7 +238,7 @@ app.delete("/api/horarios", verificarAuth, (req, res) => {
 });
 
 // Limpar grupo inteiro
-app.delete("/api/horarios/grupo/:grupoId", verificarAuth, (req, res) => {
+app.delete("/api/horarios/grupo/:grupoId", verificarAuth, exigirGestor, (req, res) => {
   try {
     const { grupoId } = req.params;
     horarios.limparGrupo(grupoId, req.usuario.id);
@@ -285,7 +312,7 @@ app.get("/api/historico/estatisticas", verificarAuth, (req, res) => {
 // ---------- Endpoints de Snapshots ----------
 
 // Criar snapshot
-app.post("/api/snapshots", verificarAuth, (req, res) => {
+app.post("/api/snapshots", verificarAuth, exigirGestor, (req, res) => {
   try {
     const { nome, descricao, dados } = req.body;
 
@@ -331,7 +358,7 @@ app.get("/api/snapshots/:id", verificarAuth, (req, res) => {
 });
 
 // Deletar snapshot
-app.delete("/api/snapshots/:id", verificarAuth, (req, res) => {
+app.delete("/api/snapshots/:id", verificarAuth, exigirGestor, (req, res) => {
   try {
     const { id } = req.params;
     historico.deletarSnapshot(parseInt(id));
