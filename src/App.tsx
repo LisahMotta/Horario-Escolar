@@ -268,7 +268,7 @@ function construirGradeProfessor(
       if (slot.tipo !== "aula") return;
       numAula++;
 
-      const aula = horario[dia][slot.id];
+      const aula = horario[dia]?.[slot.id];
       if (!aula || !aula.professor) return;
 
       const prof = aula.professor.trim();
@@ -311,7 +311,7 @@ function construirGradeTurma(
       if (slot.tipo !== "aula") return;
       numAula++;
 
-      const aula = horario[dia][slot.id];
+      const aula = horario[dia]?.[slot.id];
       if (!aula || !aula.turma) return;
 
       const turma = aula.turma.trim();
@@ -472,9 +472,26 @@ function App() {
 
   const fonteHorarios = modoSimulador ? horariosRascunho : horarios;
 
-  const horarioAtual: HorarioCompleto =
-    fonteHorarios[grupoSelecionado] ||
-    criarHorarioVazioParaGrupo(grupoSelecionado);
+  // O servidor só retorna dias que já têm pelo menos uma aula lançada (ver
+  // formatarHorariosParaFrontend em server/horarios.js) — assim que a escola
+  // lança a primeira aula de um grupo, os outros dias daquele grupo somem do
+  // objeto em vez de virem com aulas vazias. Por isso não dá pra só usar
+  // fonteHorarios[grupoSelecionado] direto: ele existe (é truthy) mas fica
+  // incompleto, faltando dia(s) inteiro(s) — e todo código que faz
+  // horario[dia][...] (sem "?.") quebra a tela inteira nesse dia que falta.
+  // Mesclando com o molde vazio (que sempre tem todo dia configurado)
+  // garante que horarioAtual nunca fica com um dia faltando.
+  const horarioAtual: HorarioCompleto = (() => {
+    const vazio = criarHorarioVazioParaGrupo(grupoSelecionado);
+    const doServidor = fonteHorarios[grupoSelecionado];
+    if (!doServidor) return vazio;
+
+    const mesclado: HorarioCompleto = { ...vazio };
+    for (const dia of Object.keys(doServidor)) {
+      mesclado[dia] = { ...vazio[dia], ...doServidor[dia] };
+    }
+    return mesclado;
+  })();
 
   // Não salva mais no localStorage, apenas no servidor
   // useEffect(() => {
@@ -2093,7 +2110,7 @@ function App() {
                             );
                           }
 
-                          const aula = horarioAtual[dia][slot.id];
+                          const aula = horarioAtual[dia]?.[slot.id];
                           const destacado =
                             aula &&
                             (correspondeBusca(aula.turma) ||
