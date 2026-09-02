@@ -210,26 +210,6 @@ function salvarLogLocal(logs: LogEntry[]) {
   localStorage.setItem("horario-escolar-log", JSON.stringify(logs));
 }
 
-function carregarUsuario(): UsuarioAtual | null {
-  const salvo = localStorage.getItem(USER_KEY);
-  if (!salvo) return null;
-
-  try {
-    const obj = JSON.parse(salvo) as Partial<UsuarioAtual>;
-    if (obj && typeof obj.nome === "string" && obj.perfil) {
-      return { nome: obj.nome, perfil: obj.perfil as Perfil };
-    }
-  } catch {
-    // se não for JSON, trata como formato antigo (apenas nome)
-    if (salvo) {
-      return { nome: salvo, perfil: "professor" };
-    }
-  }
-
-  // fallback para formato antigo
-  return { nome: salvo, perfil: "professor" };
-}
-
 function salvarUsuario(usuario: UsuarioAtual | null) {
   if (usuario) {
     localStorage.setItem(USER_KEY, JSON.stringify(usuario));
@@ -428,26 +408,26 @@ function App() {
   
   // Verifica sessão ao montar
   useEffect(() => {
-    verificarSessao().then((usuario) => {
-      if (usuario) {
-        setUsuarioAtual({
-          nome: usuario.nome,
-          perfil: usuario.perfil as Perfil,
-        });
-      } else {
-        // Fallback para localStorage
-        const local = carregarUsuario();
-        if (local) {
-          setUsuarioAtual(local);
+    verificarSessao()
+      .then((usuario) => {
+        if (usuario) {
+          setUsuarioAtual({
+            nome: usuario.nome,
+            perfil: usuario.perfil as Perfil,
+          });
+        } else {
+          // Sem token válido: não há sessão de verdade para reaproveitar.
+          // Antes isso caía num fallback que reexibia o último usuário
+          // "lembrado" no localStorage — a tela parecia logada, mas toda
+          // chamada à API falhava com 401 "Token não fornecido", porque
+          // não existia token real nenhum. Em vez disso, limpa esse resquício
+          // e mostra a tela de login normalmente.
+          salvarUsuario(null);
         }
-      }
-    }).catch(() => {
-      // Fallback para localStorage
-      const local = carregarUsuario();
-      if (local) {
-        setUsuarioAtual(local);
-      }
-    });
+      })
+      .catch(() => {
+        salvarUsuario(null);
+      });
   }, []);
   const [deferredPrompt, setDeferredPrompt] =
     useState<BeforeInstallPromptEvent | null>(null);
