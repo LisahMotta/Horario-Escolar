@@ -95,6 +95,19 @@ async function inicializarBanco() {
       criado_em TEXT NOT NULL DEFAULT (NOW()::text)
     );
 
+    CREATE TABLE IF NOT EXISTS professores (
+      id SERIAL PRIMARY KEY,
+      nome TEXT NOT NULL,
+      disciplinas TEXT[] NOT NULL DEFAULT '{}',
+      acumula_cargo BOOLEAN NOT NULL DEFAULT false,
+      atua_outra_unidade BOOLEAN NOT NULL DEFAULT false,
+      outra_unidade_nome TEXT,
+      horarios_outra_unidade JSONB NOT NULL DEFAULT '{}',
+      usuario_id INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+      criado_em TEXT NOT NULL DEFAULT (NOW()::text),
+      atualizado_em TEXT NOT NULL DEFAULT (NOW()::text)
+    );
+
     CREATE TABLE IF NOT EXISTS logs_atividade (
       id SERIAL PRIMARY KEY,
       timestamp TEXT NOT NULL,
@@ -110,6 +123,7 @@ async function inicializarBanco() {
     CREATE INDEX IF NOT EXISTS idx_historico_usuario ON historico_alteracoes(usuario_id);
     CREATE INDEX IF NOT EXISTS idx_historico_grupo ON historico_alteracoes(grupo_id, dia, slot_id);
     CREATE INDEX IF NOT EXISTS idx_snapshots_criado ON snapshots(criado_em DESC);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_professores_nome_unico ON professores (LOWER(nome));
   `);
 
   console.log("Banco de dados inicializado com sucesso!");

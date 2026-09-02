@@ -161,6 +161,71 @@ export async function limparGrupo(grupoId: string): Promise<void> {
   });
 }
 
+// ---------- Professores ----------
+
+export interface HorarioOutraUnidade {
+  aulasNoDia: number; // quantidade de aulas que o professor já tem na outra unidade nesse dia
+  horarioReferencia?: string; // texto livre, ex: "13h às 18h20", apenas para consulta visual
+}
+
+export interface ProfessorInfo {
+  id: number;
+  nome: string;
+  disciplinas: string[];
+  acumulaCargo: boolean;
+  atuaOutraUnidade: boolean;
+  outraUnidadeNome?: string;
+  horariosOutraUnidade: Record<string, HorarioOutraUnidade>;
+}
+
+export interface NovoProfessor {
+  nome: string;
+  disciplinas?: string[];
+  acumulaCargo?: boolean;
+  atuaOutraUnidade?: boolean;
+  outraUnidadeNome?: string;
+  horariosOutraUnidade?: Record<string, HorarioOutraUnidade>;
+}
+
+export interface ImportarProfessoresResultado {
+  criados: ProfessorInfo[];
+  duplicados: string[];
+}
+
+export async function buscarProfessores(): Promise<ProfessorInfo[]> {
+  return await fetchAPI("/api/professores");
+}
+
+export async function criarProfessor(dados: NovoProfessor): Promise<ProfessorInfo> {
+  return await fetchAPI("/api/professores", {
+    method: "POST",
+    body: JSON.stringify(dados),
+  });
+}
+
+export async function atualizarProfessor(
+  id: number,
+  dados: Partial<NovoProfessor>
+): Promise<ProfessorInfo> {
+  return await fetchAPI(`/api/professores/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(dados),
+  });
+}
+
+export async function removerProfessor(id: number): Promise<void> {
+  await fetchAPI(`/api/professores/${id}`, { method: "DELETE" });
+}
+
+export async function importarProfessores(
+  nomes: string[]
+): Promise<ImportarProfessoresResultado> {
+  return await fetchAPI("/api/professores/importar", {
+    method: "POST",
+    body: JSON.stringify({ nomes }),
+  });
+}
+
 // ---------- Histórico ----------
 
 export interface HistoricoAlteracao {

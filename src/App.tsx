@@ -22,8 +22,7 @@ import type { HorarioCompleto, HorariosPorGrupo } from "./types";
 import { ConfiguracaoEscola } from "./ConfiguracaoEscola";
 import { Professores } from "./Professores";
 import { Usuarios } from "./Usuarios";
-import type { ProfessorInfo } from "./professoresStore";
-import { carregarProfessores } from "./professoresStore";
+import type { ProfessorInfo } from "./api";
 import { AuthScreen } from "./AuthScreen";
 import { HistoricoAlteracoes } from "./HistoricoAlteracoes";
 import { Dashboard } from "./Dashboard";
@@ -39,6 +38,7 @@ import {
   criarSnapshot as apiCriarSnapshot,
   buscarSnapshots as apiBuscarSnapshots,
   buscarSnapshot as apiBuscarSnapshot,
+  buscarProfessores as apiBuscarProfessores,
 } from "./api";
 
 const STORAGE_KEY = "horario-escolar-manha-por-grupo";
@@ -387,9 +387,11 @@ function App() {
   );
 
   const [usuarioAtual, setUsuarioAtual] = useState<UsuarioAtual | null>(null);
-  const [professores, setProfessores] = useState<ProfessorInfo[]>(() =>
-    carregarProfessores()
-  );
+  const [professores, setProfessores] = useState<ProfessorInfo[]>([]);
+
+  function recarregarProfessores() {
+    apiBuscarProfessores().then(setProfessores).catch(console.error);
+  }
   const [menuUsuarioAberto, setMenuUsuarioAberto] = useState(false);
   const [notificacoesAbertas, setNotificacoesAbertas] = useState(false);
   const menuUsuarioRef = useRef<HTMLDivElement>(null);
@@ -416,10 +418,11 @@ function App() {
   }, []);
 
 
-  // Carrega horários do servidor quando usuarioAtual muda
+  // Carrega horários e professores do servidor quando usuarioAtual muda
   useEffect(() => {
     if (usuarioAtual) {
       carregarHorarios().then(setHorarios).catch(console.error);
+      recarregarProfessores();
     }
   }, [usuarioAtual]);
   
@@ -2643,10 +2646,19 @@ function App() {
                   <label className="cadastro-label">Disciplina</label>
                   <input
                     className="cadastro-input"
+                    list="disciplinas-do-professor"
                     placeholder="Ex: Português"
                     value={discCadastro}
                     onChange={(e) => setDiscCadastro(e.target.value)}
                   />
+                  <datalist id="disciplinas-do-professor">
+                    {(
+                      professores.find((p) => p.nome === profCadastro)
+                        ?.disciplinas || []
+                    ).map((d) => (
+                      <option key={d} value={d} />
+                    ))}
+                  </datalist>
                 </div>
 
                 <div className="cadastro-field">
@@ -3002,7 +3014,9 @@ function App() {
           {/* ---------- ABA PROFESSORES ---------- */}
           {aba === "professores" && podeEditarAgora && (
             <Professores
-              onProfessoresChange={() => setProfessores(carregarProfessores())}
+              professores={professores}
+              onProfessoresChange={recarregarProfessores}
+              onLog={adicionarLog}
             />
           )}
 

@@ -5,6 +5,7 @@ import { fileURLToPath } from "url";
 import * as auth from "./auth.js";
 import * as horarios from "./horarios.js";
 import * as historico from "./historico.js";
+import * as professores from "./professores.js";
 import pool, { erroInicializacao } from "./database.js";
 
 const app = express();
@@ -335,6 +336,67 @@ app.get("/api/historico/estatisticas", verificarAuth, async (req, res) => {
     res.json(estatisticas);
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+});
+
+// ---------- Endpoints de Professores ----------
+// Cadastro de docentes (acúmulo de cargo, disciplinas lecionadas, atuação em
+// outra unidade escolar). Leitura liberada para qualquer perfil autenticado
+// (usada no cadastro de aulas); escrita restrita a Direção/Vice-direção.
+
+app.get("/api/professores", verificarAuth, async (req, res) => {
+  try {
+    res.json(await professores.listarProfessores());
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post("/api/professores", verificarAuth, exigirGestor, async (req, res) => {
+  try {
+    const professor = await professores.criarProfessor(req.body, req.usuario.id);
+    res.status(201).json(professor);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// Importação em lote: recebe uma lista de nomes e cadastra cada um (sem
+// disciplinas/acúmulo definidos ainda — isso é ajustado depois, professor a
+// professor, na mesma tela).
+app.post("/api/professores/importar", verificarAuth, exigirGestor, async (req, res) => {
+  try {
+    const { nomes } = req.body;
+    if (!Array.isArray(nomes) || nomes.length === 0) {
+      return res
+        .status(400)
+        .json({ error: "Envie uma lista de nomes para importar." });
+    }
+    const resultado = await professores.importarProfessores(nomes, req.usuario.id);
+    res.status(201).json(resultado);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+app.put("/api/professores/:id", verificarAuth, exigirGestor, async (req, res) => {
+  try {
+    const professor = await professores.atualizarProfessor(
+      parseInt(req.params.id),
+      req.body
+    );
+    res.json(professor);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+app.delete("/api/professores/:id", verificarAuth, exigirGestor, async (req, res) => {
+  try {
+    await professores.removerProfessor(parseInt(req.params.id));
+    res.json({ ok: true });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
   }
 });
 
