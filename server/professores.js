@@ -7,6 +7,7 @@ function formatarProfessor(row) {
     id: row.id,
     nome: row.nome,
     disciplinas: row.disciplinas || [],
+    turmas: row.turmas || [],
     acumulaCargo: row.acumula_cargo,
     atuaOutraUnidade: row.atua_outra_unidade,
     outraUnidadeNome: row.outra_unidade_nome || "",
@@ -16,9 +17,11 @@ function formatarProfessor(row) {
   };
 }
 
-function normalizarDisciplinas(disciplinas) {
-  if (!Array.isArray(disciplinas)) return [];
-  return disciplinas
+// Usado tanto para disciplinas quanto para turmas: normaliza uma lista de
+// strings vinda do cliente (remove vazios, espaços e duplicatas).
+function normalizarLista(lista) {
+  if (!Array.isArray(lista)) return [];
+  return lista
     .map((d) => String(d).trim())
     .filter(Boolean)
     // remove duplicatas mantendo a ordem
@@ -40,18 +43,20 @@ export async function criarProfessor(dados, usuarioId) {
     throw new Error("Nome do professor é obrigatório");
   }
 
-  const disciplinas = normalizarDisciplinas(dados.disciplinas);
+  const disciplinas = normalizarLista(dados.disciplinas);
+  const turmas = normalizarLista(dados.turmas);
   const agora = new Date().toISOString();
 
   try {
     const { rows } = await pool.query(
       `INSERT INTO professores
-       (nome, disciplinas, acumula_cargo, atua_outra_unidade, outra_unidade_nome, horarios_outra_unidade, usuario_id, criado_em, atualizado_em)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $8)
+       (nome, disciplinas, turmas, acumula_cargo, atua_outra_unidade, outra_unidade_nome, horarios_outra_unidade, usuario_id, criado_em, atualizado_em)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $9)
        RETURNING *`,
       [
         nome,
         disciplinas,
+        turmas,
         !!dados.acumulaCargo,
         !!dados.atuaOutraUnidade,
         dados.outraUnidadeNome ? String(dados.outraUnidadeNome).trim() : null,
@@ -85,8 +90,10 @@ export async function atualizarProfessor(id, dados) {
 
   const disciplinas =
     dados.disciplinas !== undefined
-      ? normalizarDisciplinas(dados.disciplinas)
+      ? normalizarLista(dados.disciplinas)
       : existente.disciplinas;
+  const turmas =
+    dados.turmas !== undefined ? normalizarLista(dados.turmas) : existente.turmas;
   const acumulaCargo =
     dados.acumulaCargo !== undefined ? !!dados.acumulaCargo : existente.acumula_cargo;
   const atuaOutraUnidade =
@@ -108,13 +115,14 @@ export async function atualizarProfessor(id, dados) {
   try {
     const { rows: atualizado } = await pool.query(
       `UPDATE professores
-       SET nome = $1, disciplinas = $2, acumula_cargo = $3, atua_outra_unidade = $4,
-           outra_unidade_nome = $5, horarios_outra_unidade = $6, atualizado_em = $7
-       WHERE id = $8
+       SET nome = $1, disciplinas = $2, turmas = $3, acumula_cargo = $4, atua_outra_unidade = $5,
+           outra_unidade_nome = $6, horarios_outra_unidade = $7, atualizado_em = $8
+       WHERE id = $9
        RETURNING *`,
       [
         nome,
         disciplinas,
+        turmas,
         acumulaCargo,
         atuaOutraUnidade,
         outraUnidadeNome,

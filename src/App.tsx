@@ -442,6 +442,7 @@ function App() {
     return dias.length > 0 ? dias[0] : "";
   });
   const [numAulaCadastro, setNumAulaCadastro] = useState(1);
+  const [gerandoAutomatico, setGerandoAutomatico] = useState(false);
 
   const [snapshots, setSnapshots] = useState<SnapshotHorario[]>([]);
   const [snapshotSelecionadoId, setSnapshotSelecionadoId] = useState<
@@ -650,6 +651,23 @@ function App() {
   const infoGrupo = grupos.find((g) => g.id === grupoSelecionado)!;
   const podeEditarAgora = podeEditar(usuarioAtual);
   const turmasDoGrupoCadastro = getTurmasPorGrupo(grupoSelecionado);
+
+  // Se o professor selecionado já tem turmas atribuídas no cadastro dele
+  // (Configurações → Professores), a lista de turmas do formulário mostra só
+  // essas — restritas às turmas deste grupo. Sem turma atribuída (ou
+  // professor "outro", digitado na mão), cai de volta pra lista completa do
+  // grupo, mantendo o comportamento de antes.
+  const professorSelecionadoCadastro = professores.find(
+    (p) => p.nome === profCadastro
+  );
+  const turmasOpcoesCadastro = (() => {
+    const doProfessor = professorSelecionadoCadastro?.turmas.filter((t) =>
+      turmasDoGrupoCadastro.includes(t)
+    );
+    return doProfessor && doProfessor.length > 0
+      ? doProfessor
+      : turmasDoGrupoCadastro;
+  })();
   const numerosAulaDisponiveis = Array.from(
     { length: slots.filter((s) => s.tipo === "aula").length },
     (_, i) => i + 1
@@ -953,6 +971,12 @@ function App() {
         }
 
         const horarioGrupo = copia[grupoSelecionado];
+        // O grupo pode já existir mas sem esse dia específico (o servidor só
+        // retorna dias que já têm alguma aula lançada) — garante o dia antes
+        // de indexar, senão quebra a tela inteira.
+        if (!horarioGrupo[diaCadastro]) {
+          horarioGrupo[diaCadastro] = {};
+        }
         const atual = horarioGrupo[diaCadastro][slotId] || {
           disciplina: "",
           professor: "",
@@ -972,6 +996,170 @@ function App() {
     } catch (error) {
       console.error("Erro ao salvar horário:", error);
       alert("Erro ao salvar horário. Tente novamente.");
+    }
+  }
+
+  // Preenche automaticamente os horários VAZIOS do grupo atual, usando
+  // professor, disciplinas e turmas cadastrados em Configurações →
+  // Professores. Nunca sobrescreve aula já lançada, e nunca escala o mesmo
+  // professor duas vezes no mesmo horário — a checagem de conflito usa o
+  // número da aula (1ª, 2ª...), não o horário de relógio, olhando os
+  // horários já lançados em TODOS os grupos (mesma lógica do alerta de
+  // "professor em duas turmas ao mesmo tempo").
+  async function handleGerarHorarioAutomatico() {
+    if (!usuarioAtual || !podeEditar(usuarioAtual) || modoPublico) {
+      alert(
+        "Apenas usuários com perfil de Direção ou Vice-direção podem gerar horários automaticamente."
+      );
+      return;
+    }
+
+    if (turmasDoGrupoCadastro.length === 0) {
+      alert(
+        "Este grupo não tem turmas configuradas. Defina as séries dele em Configuração da Escola antes de gerar automaticamente."
+      );
+      return;
+    }
+
+    const professoresRelevantes = professores.filter(
+      (p) =>
+        p.disciplinas.length > 0 &&
+        p.turmas.some((t) => turmasDoGrupoCadastro.includes(t))
+    );
+    if (professoresRelevantes.length === 0) {
+      alert(
+        'Nenhum professor cadastrado tem turmas deste grupo e disciplinas atribuídas. Cadastre isso em Configurações → Professores (campos "Turmas atribuídas" e "Disciplinas") antes de gerar automaticamente.'
+      );
+      return;
+    }
+
+    const confirmado = confirm(
+      `Isso vai preencher automaticamente os horários vazios do grupo "${infoGrupo.nome}" com os professores, turmas e disciplinas cadastrados, respeitando conflitos de professor com outros grupos. Aulas já lançadas não são alteradas. Deseja continuar?`
+    );
+    if (!confirmado) return;
+
+    setGerandoAutomatico(true);
+    try {
+      // Ocupação de professor por (dia, nº da aula), a partir das aulas
+      // oficiais já lançadas em todos os grupos.
+      const ocupado = new Set<string>();
+      grupos.forEach((g) => {
+        const slotsG = slotsPorGrupo[g.id];
+        const horarioG = horarios[g.id];
+        if (!horarioG) return;
+        diasSemana.forEach((dia) => {
+          let numAula = 0;
+          slotsG.forEach((slot) => {
+            if (slot.tipo !== "aula") return;
+            numAula++;
+            const aula = horarioG[dia]?.[slot.id];
+            if (aula?.professor) {
+              ocupado.add(`${dia}__${numAula}__${aula.professor.trim().toLowerCase()}`);
+            }
+          });
+        });
+      });
+
+      const slotsAula = slots.filter((s) => s.tipo === "aula");
+      const proximaDisciplinaIdx: Record<string, number> = {};
+      const proximaTurmaIdx: Record<string, number> = {};
+      let proximoProfessorIdx = 0;
+
+      const alteracoes: {
+        dia: string;
+        slotId: number;
+        disciplina: string;
+        professor: string;
+        turma: string;
+      }[] = [];
+
+      diasSemana.forEach((dia) => {
+        let numAula = 0;
+        slotsAula.forEach((slot) => {
+          numAula++;
+          if (horarioAtual[dia]?.[slot.id]) return; // já preenchido, não mexe
+
+          let escolhido: ProfessorInfo | null = null;
+          for (let tentativa = 0; tentativa < professoresRelevantes.length; tentativa++) {
+            const idx = (proximoProfessorIdx + tentativa) % professoresRelevantes.length;
+            const candidato = professoresRelevantes[idx];
+            const chave = `${dia}__${numAula}__${candidato.nome.trim().toLowerCase()}`;
+            if (!ocupado.has(chave)) {
+              escolhido = candidato;
+              proximoProfessorIdx = idx + 1;
+              break;
+            }
+          }
+          if (!escolhido) return; // todo professor relevante já ocupado nesse horário
+
+          const turmasDele = escolhido.turmas.filter((t) =>
+            turmasDoGrupoCadastro.includes(t)
+          );
+          const tIdx = (proximaTurmaIdx[escolhido.nome] ?? 0) % turmasDele.length;
+          proximaTurmaIdx[escolhido.nome] = tIdx + 1;
+          const turma = turmasDele[tIdx];
+
+          const dIdx =
+            (proximaDisciplinaIdx[escolhido.nome] ?? 0) % escolhido.disciplinas.length;
+          proximaDisciplinaIdx[escolhido.nome] = dIdx + 1;
+          const disciplina = escolhido.disciplinas[dIdx];
+
+          ocupado.add(`${dia}__${numAula}__${escolhido.nome.trim().toLowerCase()}`);
+          alteracoes.push({ dia, slotId: slot.id, disciplina, professor: escolhido.nome, turma });
+        });
+      });
+
+      if (alteracoes.length === 0) {
+        alert(
+          "Não havia horário vazio para preencher (ou os professores cadastrados já estão todos em conflito nesses horários)."
+        );
+        return;
+      }
+
+      for (const alt of alteracoes) {
+        if (!modoSimulador) {
+          await apiSalvarHorario(
+            grupoSelecionado,
+            alt.dia,
+            alt.slotId,
+            alt.disciplina,
+            alt.professor,
+            alt.turma
+          );
+        }
+      }
+
+      const setter = modoSimulador ? setHorariosRascunho : setHorarios;
+      setter((prev) => {
+        const copia: HorariosPorGrupo = structuredClone(prev);
+        // Parte do horarioAtual (já mesclado com o molde vazio, então sempre
+        // tem todo dia configurado) em vez de copia[grupoSelecionado] direto,
+        // que pode vir incompleto do servidor.
+        const horarioGrupo: HorarioCompleto = structuredClone(horarioAtual);
+        for (const alt of alteracoes) {
+          horarioGrupo[alt.dia][alt.slotId] = {
+            disciplina: alt.disciplina,
+            professor: alt.professor,
+            turma: alt.turma,
+          };
+        }
+        copia[grupoSelecionado] = horarioGrupo;
+        return copia;
+      });
+
+      adicionarLog(
+        "gerar_horario_automatico",
+        `Horário gerado automaticamente para "${infoGrupo.nome}": ${alteracoes.length} aula(s) preenchida(s).`,
+        grupoSelecionado
+      );
+      alert(`${alteracoes.length} aula(s) preenchida(s) automaticamente!`);
+    } catch (error) {
+      console.error("Erro ao gerar horário automaticamente:", error);
+      alert(
+        "Erro ao gerar horário automaticamente. Algumas aulas podem já ter sido salvas — confira o quadro geral."
+      );
+    } finally {
+      setGerandoAutomatico(false);
     }
   }
 
@@ -1003,7 +1191,9 @@ function App() {
         if (!copia[grupoSelecionado]) return prev;
 
         const horarioGrupo = copia[grupoSelecionado];
-        horarioGrupo[diaCadastro][slotId] = null;
+        if (horarioGrupo[diaCadastro]) {
+          horarioGrupo[diaCadastro][slotId] = null;
+        }
 
         return copia;
       });
@@ -2552,50 +2742,6 @@ function App() {
 
               <div className="cadastro-grid">
                 <div className="cadastro-field">
-                  <label className="cadastro-label">Turma</label>
-                  {turmasDoGrupoCadastro.length > 0 ? (
-                    <>
-                      <select
-                        className="cadastro-select"
-                        value={
-                          turmasDoGrupoCadastro.includes(turmaCadastro)
-                            ? turmaCadastro
-                            : "__outra__"
-                        }
-                        onChange={(e) =>
-                          setTurmaCadastro(
-                            e.target.value === "__outra__" ? "" : e.target.value
-                          )
-                        }
-                      >
-                        <option value="__outra__">Outra (digitar manualmente)</option>
-                        {turmasDoGrupoCadastro.map((t) => (
-                          <option key={t} value={t}>
-                            {t}
-                          </option>
-                        ))}
-                      </select>
-                      {!turmasDoGrupoCadastro.includes(turmaCadastro) && (
-                        <input
-                          className="cadastro-input"
-                          placeholder="Ex: 6º A"
-                          value={turmaCadastro}
-                          onChange={(e) => setTurmaCadastro(e.target.value)}
-                          style={{ marginTop: "0.35rem" }}
-                        />
-                      )}
-                    </>
-                  ) : (
-                    <input
-                      className="cadastro-input"
-                      placeholder="Ex: 6º A"
-                      value={turmaCadastro}
-                      onChange={(e) => setTurmaCadastro(e.target.value)}
-                    />
-                  )}
-                </div>
-
-                <div className="cadastro-field">
                   <label className="cadastro-label">Professor(a)</label>
                   {professores.length > 0 ? (
                     <>
@@ -2640,6 +2786,50 @@ function App() {
                 </div>
 
                 <div className="cadastro-field">
+                  <label className="cadastro-label">Turma</label>
+                  {turmasOpcoesCadastro.length > 0 ? (
+                    <>
+                      <select
+                        className="cadastro-select"
+                        value={
+                          turmasOpcoesCadastro.includes(turmaCadastro)
+                            ? turmaCadastro
+                            : "__outra__"
+                        }
+                        onChange={(e) =>
+                          setTurmaCadastro(
+                            e.target.value === "__outra__" ? "" : e.target.value
+                          )
+                        }
+                      >
+                        <option value="__outra__">Outra (digitar manualmente)</option>
+                        {turmasOpcoesCadastro.map((t) => (
+                          <option key={t} value={t}>
+                            {t}
+                          </option>
+                        ))}
+                      </select>
+                      {!turmasOpcoesCadastro.includes(turmaCadastro) && (
+                        <input
+                          className="cadastro-input"
+                          placeholder="Ex: 6º A"
+                          value={turmaCadastro}
+                          onChange={(e) => setTurmaCadastro(e.target.value)}
+                          style={{ marginTop: "0.35rem" }}
+                        />
+                      )}
+                    </>
+                  ) : (
+                    <input
+                      className="cadastro-input"
+                      placeholder="Ex: 6º A"
+                      value={turmaCadastro}
+                      onChange={(e) => setTurmaCadastro(e.target.value)}
+                    />
+                  )}
+                </div>
+
+                <div className="cadastro-field">
                   <label className="cadastro-label">Disciplina</label>
                   <input
                     className="cadastro-input"
@@ -2649,10 +2839,7 @@ function App() {
                     onChange={(e) => setDiscCadastro(e.target.value)}
                   />
                   <datalist id="disciplinas-do-professor">
-                    {(
-                      professores.find((p) => p.nome === profCadastro)
-                        ?.disciplinas || []
-                    ).map((d) => (
+                    {(professorSelecionadoCadastro?.disciplinas || []).map((d) => (
                       <option key={d} value={d} />
                     ))}
                   </datalist>
@@ -2703,6 +2890,18 @@ function App() {
                 >
                   <span className="button-danger-icon">✖</span>
                   Limpar este horário
+                </button>
+
+                <button
+                  className="button-secondary"
+                  onClick={handleGerarHorarioAutomatico}
+                  disabled={gerandoAutomatico}
+                  title="Preenche os horários vazios deste grupo usando os professores, turmas e disciplinas cadastrados em Configurações → Professores"
+                >
+                  <span>⚡</span>
+                  {gerandoAutomatico
+                    ? "Gerando..."
+                    : "Gerar horário automaticamente"}
                 </button>
               </div>
 
