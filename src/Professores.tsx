@@ -6,7 +6,7 @@ import {
   importarProfessores,
   removerProfessor,
 } from "./api";
-import { getDiasSemana } from "./scheduleConfig";
+import { getDiasSemana, getGrupos, getTurmasPorGrupo } from "./scheduleConfig";
 
 interface ProfessoresProps {
   professores: ProfessorInfo[];
@@ -17,6 +17,7 @@ interface ProfessoresProps {
 interface FormularioProfessor {
   nome: string;
   disciplinasTexto: string;
+  turmas: string[];
   acumulaCargo: boolean;
   atuaOutraUnidade: boolean;
   outraUnidadeNome: string;
@@ -30,6 +31,7 @@ function formularioVazio(): FormularioProfessor {
   return {
     nome: "",
     disciplinasTexto: "",
+    turmas: [],
     acumulaCargo: false,
     atuaOutraUnidade: false,
     outraUnidadeNome: "",
@@ -50,6 +52,7 @@ export function Professores({
   onLog,
 }: ProfessoresProps) {
   const diasSemana = getDiasSemana();
+  const grupos = getGrupos();
 
   // Um único formulário, sempre no mesmo lugar: cadastra, limpa e fica
   // pronto para o próximo professor (em vez de abrir um bloco novo a cada
@@ -74,6 +77,15 @@ export function Professores({
     valor: FormularioProfessor[K]
   ) {
     setForm((f) => ({ ...f, [campo]: valor }));
+  }
+
+  function alternarTurma(turma: string) {
+    setForm((f) => ({
+      ...f,
+      turmas: f.turmas.includes(turma)
+        ? f.turmas.filter((t) => t !== turma)
+        : [...f.turmas, turma],
+    }));
   }
 
   function atualizarDia(
@@ -101,6 +113,7 @@ export function Professores({
     setForm({
       nome: p.nome,
       disciplinasTexto: p.disciplinas.join(", "),
+      turmas: p.turmas,
       acumulaCargo: p.acumulaCargo,
       atuaOutraUnidade: p.atuaOutraUnidade,
       outraUnidadeNome: p.outraUnidadeNome || "",
@@ -125,6 +138,7 @@ export function Professores({
     const dados = {
       nome,
       disciplinas: parseDisciplinas(form.disciplinasTexto),
+      turmas: form.turmas,
       acumulaCargo: form.acumulaCargo,
       atuaOutraUnidade: form.atuaOutraUnidade,
       outraUnidadeNome: form.outraUnidadeNome.trim(),
@@ -258,6 +272,70 @@ export function Professores({
               }
               placeholder="Ex: Matemática, Física"
             />
+          </div>
+        </div>
+
+        <div style={{ marginBottom: "0.75rem" }}>
+          <label
+            className="cadastro-label"
+            style={{ display: "block", marginBottom: "0.4rem" }}
+          >
+            Turmas atribuídas
+          </label>
+          <p style={{ fontSize: "0.8rem", color: "#6b7280", marginBottom: "0.5rem" }}>
+            Ao montar o horário, escolher este professor já vai sugerir só
+            estas turmas — e elas entram automaticamente se você usar
+            "Gerar horário automaticamente".
+          </p>
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: "0.5rem",
+              background: "#f9fafb",
+              borderRadius: "8px",
+              padding: "0.75rem",
+            }}
+          >
+            {grupos.map((g) => {
+              const turmasDoGrupo = getTurmasPorGrupo(g.id);
+              if (turmasDoGrupo.length === 0) return null;
+              return (
+                <div key={g.id}>
+                  <span
+                    style={{
+                      fontSize: "0.75rem",
+                      fontWeight: 600,
+                      color: "#4b5563",
+                      display: "block",
+                      marginBottom: "0.25rem",
+                    }}
+                  >
+                    {g.nome}
+                  </span>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: "0.75rem" }}>
+                    {turmasDoGrupo.map((turma) => (
+                      <label
+                        key={turma}
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "0.35rem",
+                          fontSize: "0.85rem",
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={form.turmas.includes(turma)}
+                          onChange={() => alternarTurma(turma)}
+                        />
+                        {turma}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
 
@@ -495,6 +573,7 @@ export function Professores({
               <tr>
                 <th>Nome</th>
                 <th>Disciplinas</th>
+                <th>Turmas</th>
                 <th>Acumula cargo</th>
                 <th>Outra unidade</th>
                 <th></th>
@@ -505,6 +584,7 @@ export function Professores({
                 <tr key={p.id}>
                   <td>{p.nome}</td>
                   <td>{p.disciplinas.length > 0 ? p.disciplinas.join(", ") : "—"}</td>
+                  <td>{p.turmas.length > 0 ? p.turmas.join(", ") : "—"}</td>
                   <td>{p.acumulaCargo ? "Sim" : "Não"}</td>
                   <td>{p.atuaOutraUnidade ? p.outraUnidadeNome || "Sim" : "Não"}</td>
                   <td>

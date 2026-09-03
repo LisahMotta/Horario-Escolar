@@ -172,6 +172,7 @@ export interface ProfessorInfo {
   id: number;
   nome: string;
   disciplinas: string[];
+  turmas: string[];
   acumulaCargo: boolean;
   atuaOutraUnidade: boolean;
   outraUnidadeNome?: string;
@@ -181,6 +182,7 @@ export interface ProfessorInfo {
 export interface NovoProfessor {
   nome: string;
   disciplinas?: string[];
+  turmas?: string[];
   acumulaCargo?: boolean;
   atuaOutraUnidade?: boolean;
   outraUnidadeNome?: string;

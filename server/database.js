@@ -99,6 +99,7 @@ async function inicializarBanco() {
       id SERIAL PRIMARY KEY,
       nome TEXT NOT NULL,
       disciplinas TEXT[] NOT NULL DEFAULT '{}',
+      turmas TEXT[] NOT NULL DEFAULT '{}',
       acumula_cargo BOOLEAN NOT NULL DEFAULT false,
       atua_outra_unidade BOOLEAN NOT NULL DEFAULT false,
       outra_unidade_nome TEXT,
@@ -124,6 +125,10 @@ async function inicializarBanco() {
     CREATE INDEX IF NOT EXISTS idx_historico_grupo ON historico_alteracoes(grupo_id, dia, slot_id);
     CREATE INDEX IF NOT EXISTS idx_snapshots_criado ON snapshots(criado_em DESC);
     CREATE UNIQUE INDEX IF NOT EXISTS idx_professores_nome_unico ON professores (LOWER(nome));
+
+    -- Migração: bancos criados antes do campo "turmas" existir (CREATE TABLE
+    -- IF NOT EXISTS acima não adiciona colunas a uma tabela que já existe).
+    ALTER TABLE professores ADD COLUMN IF NOT EXISTS turmas TEXT[] NOT NULL DEFAULT '{}';
   `);
 
   console.log("Banco de dados inicializado com sucesso!");
